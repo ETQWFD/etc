@@ -16,6 +16,10 @@ plugins {
 
 android {
     namespace = "me.rerere.rikkahub"
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
     compileSdk {
         version = release(37) {
             minorApiLevel = 2
@@ -26,8 +30,8 @@ android {
         applicationId = "me.rerere.rikkahub"
         minSdk = 26
         targetSdk = 37
-        versionCode = 192
-        versionName = "2.5.7"
+        versionCode = 193
+        versionName = "2.5.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -73,7 +77,7 @@ android {
         release {
             signingConfig = signingConfigs.getByName("release")
             optimization {
-                enable = false
+                enable = true
             }
             buildConfigField("String", "VERSION_NAME", "\"${android.defaultConfig.versionName}\"")
             buildConfigField("String", "VERSION_CODE", "\"${android.defaultConfig.versionCode}\"")

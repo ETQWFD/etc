@@ -51,6 +51,7 @@ import me.rerere.hugeicons.stroke.Bookshelf01
 import me.rerere.hugeicons.stroke.Brain02
 import me.rerere.hugeicons.stroke.Clapping01
 import me.rerere.hugeicons.stroke.Database02
+import me.rerere.hugeicons.stroke.Download01
 import me.rerere.hugeicons.stroke.GlobalSearch
 import me.rerere.hugeicons.stroke.Image02
 import me.rerere.hugeicons.stroke.ImageUpload
@@ -92,6 +93,8 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
     val navController = LocalNavController.current
     val settings by vm.settings.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
+    val updateState = rememberUpdateCheckState()
+    UpdateCheckDialogs(updateState)
 
     Scaffold(
         topBar = {
@@ -273,6 +276,25 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     modifier = Modifier.padding(horizontal = 8.dp),
                     title = { Text(stringResource(R.string.setting_page_about)) },
                 ) {
+                    item(
+                        onClick = { updateState.check() },
+                        leadingContent = { Icon(HugeIcons.Download01, null) },
+                        supportingContent = {
+                            Text(
+                                if (updateState.phase == UpdatePhase.Checking) {
+                                    if (java.util.Locale.getDefault().language == "zh") "正在检查…" else "Checking…"
+                                } else {
+                                    "v${me.rerere.rikkahub.BuildConfig.VERSION_NAME}"
+                                }
+                            )
+                        },
+                        trailingContent = { UpdateCheckTrailing(updateState) },
+                        headlineContent = {
+                            Text(
+                                if (java.util.Locale.getDefault().language == "zh") "检查更新" else "Check for updates"
+                            )
+                        },
+                    )
                     item(
                         onClick = { navController.navigate(Screen.SettingAbout) },
                         leadingContent = { Icon(HugeIcons.Clapping01, null) },
