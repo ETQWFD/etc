@@ -1,0 +1,23 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.cursor
+.history
+.kotlin
+# signing/local
+app/etc.jks
+*.jks
+*.keystore
+google-services.json
+
+# local build logs
+build-logs/
+
+.github/workflows/

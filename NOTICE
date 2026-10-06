@@ -1,0 +1,39 @@
+etc
+===
+
+etc is a modified version (fork) of RikkaHub.
+
+  Upstream project : RikkaHub
+  Upstream source  : https://github.com/rikkahub/rikkahub
+  Upstream license : GNU Affero General Public License v3.0 (AGPL-3.0)
+
+The original RikkaHub source is copyrighted by its original authors and is
+licensed under AGPL-3.0. This fork does not remove or replace that copyright
+or license. Because AGPL-3.0 is a strong copyleft licence, this modified
+version, and the combined program as distributed, remain under AGPL-3.0; it
+cannot be relicensed under MIT or any permissive licence without permission
+from every original copyright holder. The full text of AGPL-3.0 is in the
+LICENSE file. The complete, corresponding source of this build is provided in
+the source repository, as required by AGPL-3.0.
+
+Modifications made for this fork include, but are not limited to:
+  - Rebranding the application display name to "etc".
+  - Adding a 32-bit armeabi-v7a (ARMv7) native build so the program can run on
+    32-bit Android devices, including freshly cross-compiled native libraries
+    (MuPDF, PRoot/talloc and the SQLite "simple" tokenizer) for armeabi-v7a.
+
+Third-party native components bundled in the APK keep their own licences:
+
+  MuPDF 1.26.8                 AGPL-3.0 (or Artifex commercial licence)
+                               (C) Artifex Software, Inc.
+  PRoot v5.1.107.96 (Termux)   GPL-2.0
+  talloc 2.5.0                 LGPL-3.0-or-later (statically linked into
+                               the GPL-2.0 PRoot binary)
+  simple (wangfenjin/simple)   MIT (bundles cppjieba/limonp, MIT; SQLite,
+                               public domain)
+  material-color-utilities     Apache-2.0
+
+The presence of GPL/AGPL components is another reason the combined program
+must be distributed under AGPL-3.0 rather than MIT.
+
+All trademarks belong to their respective owners.

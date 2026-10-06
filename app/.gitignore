@@ -1,0 +1,14 @@
+/build
+/release
+google-services.json
+app.key*.jks
+*.keystore
+
+# signing (local only)
+etc.jks
+*.jks
+*.keystore
+local.properties
+
+src/release/generated/
+src/debug/generated/
