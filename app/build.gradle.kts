@@ -11,7 +11,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
-    alias(libs.plugins.baselineprofile)
+    // baselineprofile disabled for the low-memory armv7 fork build
 }
 
 android {
@@ -249,7 +249,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.paging)
-    baselineProfile(project(":app:baselineprofile"))
+    // baselineProfile(project(":app:baselineprofile")) disabled for armv7 fork
     ksp(libs.androidx.room.compiler)
 
     // Paging3
