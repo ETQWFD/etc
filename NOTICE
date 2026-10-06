@@ -1,7 +1,7 @@
-etc
+Reai (maintained by etc)
 ===
 
-etc is a modified version (fork) of RikkaHub.
+Reai (developer: etc) is a modified version (fork) of RikkaHub.
 
   Upstream project : RikkaHub
   Upstream source  : https://github.com/rikkahub/rikkahub
@@ -17,7 +17,7 @@ LICENSE file. The complete, corresponding source of this build is provided in
 the source repository, as required by AGPL-3.0.
 
 Modifications made for this fork include, but are not limited to:
-  - Rebranding the application display name to "etc".
+  - Rebranding the application display name to "Reai" (developer credit "etc"); rebuilt armeabi-v7a native libraries; added QQ group link; removed donation entry; grouped local tools; new app icon.
   - Adding a 32-bit armeabi-v7a (ARMv7) native build so the program can run on
     32-bit Android devices, including freshly cross-compiled native libraries
     (MuPDF, PRoot/talloc and the SQLite "simple" tokenizer) for armeabi-v7a.
