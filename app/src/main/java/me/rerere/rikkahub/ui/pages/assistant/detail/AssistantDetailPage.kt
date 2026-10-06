@@ -160,7 +160,7 @@ private fun AssistantHeader(
         assistant.systemPrompt
             .replace("{{char}}", displayName)
             .replace("{{model_name}}", "AI")
-            .replace(Regex("\\{\\{[^}]*}}"), "")
+            .replace(Regex("\\{\\{[^{}]*\\}\\}"), "")
     }
     Column(
         modifier = modifier.fillMaxWidth(),
