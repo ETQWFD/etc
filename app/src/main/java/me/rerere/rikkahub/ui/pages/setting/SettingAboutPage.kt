@@ -68,16 +68,12 @@ fun SettingAboutPage() {
     }
     val emojiOptions = remember {
         listOf(
-            "🎉", "✨", "🌟", "💫", "🎊", "🥳", "🎈", "🎆", "🎇", "🧨",
-            "🌈", "🧧", "🎁", "🍬", "🍭", "🍉", "🍓", "🍒", "🍍", "🥭",
-            "🐱", "🐶", "🦊", "🐼", "🦁", "🐯", "🐵", "🦄",
-            "❤️", "🧡", "💛", "💚", "💙", "💜",
-            "🇨🇳", "🌏", "🌍", "🌎",
-            "🤗", "🤩", "😆", "😺", "😸", "🤡",
-            "💡", "🔥", "💥", "🚀", "⭐", "🌙"
+            "✨", "🚀", "💙", "🤖", "💡", "⭐", "🌟", "💫", "🔥", "🎉",
+            "🧠", "💬", "🪄", "💠", "🫧", "☁️", "🩵", "💎"
         )
     }
     var logoCenterPx by remember { mutableStateOf(Offset.Zero) }
+    var logoTapCount by remember { mutableStateOf(0) }
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
@@ -127,8 +123,18 @@ fun SettingAboutPage() {
                                     )
                                 }
                                 .clickable {
+                                    logoTapCount += 1
                                     onBurst(logoCenterPx)
                                     soundEffectPlayer.play(soundOptions.random())
+                                    if (logoTapCount % 7 == 0) {
+                                        android.widget.Toast
+                                            .makeText(
+                                                context,
+                                                "🎉 Reai 彩蛋！你已经点了 Logo $logoTapCount 下～",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            )
+                                            .show()
+                                    }
                                 }
                         )
 

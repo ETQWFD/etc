@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -153,6 +154,14 @@ private fun AssistantHeader(
     assistant: Assistant,
     modifier: Modifier = Modifier
 ) {
+    val displayName = assistant.name.ifBlank { stringResource(R.string.assistant_page_default_assistant) }
+    val promptPreview = remember(assistant.systemPrompt, displayName) {
+        // 展示层把提示词模板变量替换成可读内容，避免直接露出 {{char}} 等占位符
+        assistant.systemPrompt
+            .replace("{{char}}", displayName)
+            .replace("{{model_name}}", "AI")
+            .replace(Regex("\\{\\{[^}]*}}"), "")
+    }
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -160,7 +169,7 @@ private fun AssistantHeader(
     ) {
         UIAvatar(
             value = assistant.avatar,
-            name = assistant.name.ifBlank { stringResource(R.string.assistant_page_default_assistant) },
+            name = displayName,
             onUpdate = null,
             modifier = Modifier
                 .size(100.dp)
@@ -168,15 +177,15 @@ private fun AssistantHeader(
         )
 
         Text(
-            text = assistant.name.ifBlank { stringResource(R.string.assistant_page_default_assistant) },
+            text = displayName,
             style = MaterialTheme.typography.headlineSmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
 
-        if (assistant.systemPrompt.isNotBlank()) {
+        if (promptPreview.isNotBlank()) {
             Text(
-                text = assistant.systemPrompt.take(100) + if (assistant.systemPrompt.length > 100) "..." else "",
+                text = promptPreview.take(100) + if (promptPreview.length > 100) "..." else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,

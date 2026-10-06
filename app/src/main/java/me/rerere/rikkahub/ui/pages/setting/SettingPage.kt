@@ -304,9 +304,9 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     item(
                         onClick = {
                             val docUrl = if (java.util.Locale.getDefault().language == "zh") {
-                                "https://docs.rikka-ai.com/zh/introduction"
+                                "https://etqwfd.github.io/etc/docs.html"
                             } else {
-                                "https://docs.rikka-ai.com/introduction"
+                                "https://etqwfd.github.io/etc/docs.html#en"
                             }
                             context.openUrl(docUrl)
                         },

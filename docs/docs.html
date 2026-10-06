@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Reai 使用文档 · 32 位 armv7 安卓 AI 客户端</title>
+<meta name="description" content="Reai 使用文档：安装、配置模型服务商、创建助手与对话、扩展与本地工具、32 位手机常见问题。">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --line:#262d36; --fg:#e6e9ee; --muted:#9aa6b2;
+    --accent:#22c8e6; --accent-fg:#04222b; --link:#5cc8ff;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f6f7f9; --panel:#ffffff; --line:#e2e6ea; --fg:#1a1d21; --muted:#5b6672;
+      --accent:#0b8fb2; --accent-fg:#ffffff; --link:#0b6fa4;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  header.nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 86%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
+  .brand{font-weight:700;font-size:18px;text-decoration:none;color:var(--fg);display:flex;align-items:center;gap:8px}
+  .brand img{width:26px;height:26px;border-radius:7px}
+  .brand span{color:var(--accent)}
+  nav a{color:var(--muted);text-decoration:none;margin-left:20px;font-size:14px}
+  nav a:hover{color:var(--fg)}
+  .hero{padding:56px 0 20px}
+  h1{font-size:32px;margin:0 0 10px}
+  .lead{color:var(--muted);margin:0}
+  .layout{display:grid;grid-template-columns:190px 1fr;gap:34px;padding:30px 0 70px}
+  .toc{position:sticky;top:78px;align-self:start;font-size:14px}
+  .toc a{display:block;color:var(--muted);text-decoration:none;padding:5px 0}
+  .toc a:hover{color:var(--accent)}
+  section{padding:18px 0;border-top:1px solid var(--line)}
+  section:first-child{border-top:none}
+  h2{font-size:22px;margin:6px 0 12px}
+  h3{font-size:17px;margin:20px 0 6px}
+  p,li{color:var(--fg)}
+  .muted{color:var(--muted)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0}
+  ol,ul{padding-left:22px}
+  li{margin:6px 0}
+  code{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .btn{display:inline-block;background:var(--accent);color:var(--accent-fg);font-weight:600;
+    padding:11px 22px;border-radius:10px;text-decoration:none;margin-top:10px}
+  .kv{width:100%;border-collapse:collapse;margin:8px 0;font-size:14px}
+  .kv th,.kv td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  .kv th{background:var(--panel);width:34%}
+  .en{display:none}
+  body.show-en .zh{display:none}
+  body.show-en .en{display:block}
+  footer{border-top:1px solid var(--line);padding:26px 0 50px;color:var(--muted);font-size:13px}
+  @media (max-width:720px){
+    .layout{grid-template-columns:1fr;gap:0}
+    .toc{position:static;display:none}
+  }
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html"><img src="reai-icon.png" alt="Reai">Re<span>ai</span></a>
+    <nav>
+      <a href="index.html">首页</a>
+      <a href="docs.html">文档</a>
+      <a href="index.html#source">源码</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <h1 class="zh">Reai 使用文档</h1>
+    <h1 class="en">Reai Documentation</h1>
+    <p class="lead zh">面向 32 位（armeabi-v7a）安卓手机的 AI 聊天客户端。本文讲清楚怎么装、怎么填接口、怎么开始用。</p>
+    <p class="lead en">An AI chat client built for 32-bit (armeabi-v7a) Android phones. Install, configure a model provider, and start chatting.</p>
+    <button class="btn" type="button" onclick="document.body.classList.toggle('show-en')" style="background:transparent;color:var(--link);border:1px solid var(--line)">中文 / English</button>
+  </div>
+
+  <div class="layout">
+    <aside class="toc">
+      <a href="#install">1. 安装</a>
+      <a href="#provider">2. 配置服务商</a>
+      <a href="#assistant">3. 创建助手</a>
+      <a href="#chat">4. 开始对话</a>
+      <a href="#features">5. 功能说明</a>
+      <a href="#tools">6. 本地工具</a>
+      <a href="#faq">7. 常见问题</a>
+      <a href="#license">8. 许可</a>
+    </aside>
+
+    <div>
+      <section id="install">
+        <h2 class="zh">1. 安装</h2>
+        <h2 class="en">1. Install</h2>
+        <ol class="zh">
+          <li>在 <a href="index.html">官网首页</a>点“直接下载 APK”，或复制直链：<code>https://github.com/ETQWFD/etc/releases/latest/download/etc-armv7.apk</code>。</li>
+          <li>安装包只含 <code>armeabi-v7a</code>（32 位 ARM）原生库，最低需要 Android 8.0（API 26）。64 位手机一般也能兼容运行。</li>
+          <li>若提示“未知来源”，到系统设置里允许当前浏览器安装应用即可。</li>
+          <li>安装后建议对照首页公布的 SHA-256 校验值核对文件。</li>
+        </ol>
+        <ol class="en">
+          <li>Download from the <a href="index.html">homepage</a> direct link: <code>https://github.com/ETQWFD/etc/releases/latest/download/etc-armv7.apk</code>.</li>
+          <li>The APK contains armeabi-v7a (32-bit ARM) native libs only; Android 8.0 (API 26) or later is required. Most 64-bit phones can still run it.</li>
+          <li>Allow your browser to install apps from unknown sources if prompted.</li>
+        </ol>
+      </section>
+
+      <section id="provider">
+        <h2 class="zh">2. 配置模型服务商</h2>
+        <h2 class="en">2. Add a model provider</h2>
+        <p class="zh">Reai 不内置任何模型，也不提供服务器。第一次打开，进入 <strong>设置 → 模型与服务 → 服务商</strong>，添加一个兼容 OpenAI 协议的接口。</p>
+        <table class="kv zh">
+          <tr><th>接口地址 (Base URL)</th><td>填到 <code>/v1</code> 这一层，例如 <code>https://api.example.com/v1</code>。</td></tr>
+          <tr><th>密钥 (API Key)</th><td>填你在服务商后台生成的密钥。</td></tr>
+          <tr><th>模型 (Model)</th><td>手动填入模型名，或在支持的服务上点“拉取模型列表”。</td></tr>
+        </table>
+        <p class="zh">保存后回到 <strong>设置 → 默认模型</strong>，把默认对话、向量（搜索）等模型选上，就可以正常聊天了。</p>
+        <p class="en">Reai ships with no model or server. Go to <strong>Settings → Providers</strong>, add an OpenAI-compatible endpoint (base URL ending with <code>/v1</code>, API key, model name), then pick it under <strong>Default model</strong>.</p>
+      </section>
+
+      <section id="assistant">
+        <h2 class="zh">3. 创建助手</h2>
+        <h2 class="en">3. Assistants</h2>
+        <p class="zh">助手页内置一个“默认助手”。点进助手可配置：</p>
+        <ul class="zh">
+          <li><strong>基础设定</strong>：名称、头像、使用的模型和生成参数。</li>
+          <li><strong>提示词</strong>：系统提示、消息模板、正则规则。模板里的 <code>{{char}}</code>、<code>{{model_name}}</code> 等会在发送给模型时替换，助手卡片上看到的是渲染后的预览，不会把花括号发给你看。</li>
+          <li><strong>扩展管理 / 记忆 / 自定义请求 / MCP / 本地工具</strong>：按需开关。</li>
+        </ul>
+        <p class="en">Open the assistant page to edit name, avatar, model, system prompt, memory, MCP and local tools.</p>
+      </section>
+
+      <section id="chat">
+        <h2 class="zh">4. 开始对话</h2>
+        <h2 class="en">4. Chat</h2>
+        <ul class="zh">
+          <li>支持文本、图片、PDF、Docx 等多模态输入（取决于所选模型）。</li>
+          <li>回复支持代码高亮、表格、公式、Mermaid 图表。</li>
+          <li>聊天记录可用中文关键词全文检索（内置 jieba 分词与拼音）。</li>
+          <li>在 <strong>设置 → 数据</strong> 里可以备份、恢复或清理文件。</li>
+        </ul>
+        <ul class="en">
+          <li>Send text, images, PDF or Docx depending on the model.</li>
+          <li>Rendered code blocks, tables, formulas and Mermaid diagrams are supported.</li>
+        </ul>
+      </section>
+
+      <section id="features">
+        <h2 class="zh">5. 功能说明</h2>
+        <h2 class="en">5. Features</h2>
+        <ul class="zh">
+          <li><strong>多服务商</strong>：自定义地址、密钥、模型，一套界面切换多个后端。</li>
+          <li><strong>语音</strong>：可接 TTS 服务朗读回复（设置 → 语音服务）。</li>
+          <li><strong>联网/工作区</strong>：工作区为可选功能，32 位设备如需容器环境要自行准备 armhf 的 rootfs。</li>
+          <li><strong>深色模式</strong>：跟随系统外观。</li>
+        </ul>
+        <ul class="en">
+          <li>Multiple OpenAI-compatible providers, TTS, dark mode and optional workspace features.</li>
+        </ul>
+      </section>
+
+      <section id="tools">
+        <h2 class="zh">6. 本地工具</h2>
+        <h2 class="en">6. Local tools</h2>
+        <p class="zh">在助手详情的“本地工具”里，按两组管理：</p>
+        <ul class="zh">
+          <li><strong>交互能力</strong>：JavaScript 引擎、时间信息、剪贴板、向你提问、文字转语音。</li>
+          <li><strong>设备与数据</strong>：屏幕使用时间、日历、图表展示。</li>
+        </ul>
+        <p class="zh">屏幕时间需要“使用情况访问”权限，日历需要日历读写权限，开启时按提示授权即可。</p>
+        <p class="en">Local tools are grouped into interaction (JS engine, time, clipboard, ask user, TTS) and device/data (screen time, calendar, chart). Grant the requested Android permissions when enabling them.</p>
+      </section>
+
+      <section id="faq">
+        <h2 class="zh">7. 常见问题</h2>
+        <h2 class="en">7. FAQ</h2>
+        <div class="card zh">
+          <strong>打开后无法回复？</strong><br>
+          绝大多数是接口没配好：检查 Base URL 是否到 <code>/v1</code>、密钥是否有效、模型名是否拼写正确，可在“请求日志”里看具体报错。
+        </div>
+        <div class="card zh">
+          <strong>安装提示“解析包失败 / 不兼容”？</strong><br>
+          本包最低 Android 8.0；极老的 x86 模拟器不适用。请确认设备是 ARM（32 位或兼容 32 位的 64 位）。
+        </div>
+        <div class="card zh">
+          <strong>32 位包会不会更慢？</strong><br>
+          推理速度主要取决于模型服务端；本地原生库（PDF、分词等）均已为 armv7 重新编译，可正常运行。
+        </div>
+        <div class="card en zh">
+          <strong>Where to get help?</strong> Join the QQ group 【AI交流群】 1057717202 from the About page or homepage.
+        </div>
+      </section>
+
+      <section id="license">
+        <h2 class="zh">8. 许可与来源</h2>
+        <h2 class="en">8. License</h2>
+        <p class="zh">Reai 是开源项目 <a href="https://github.com/rikkahub/rikkahub" rel="noopener">RikkaHub</a> 的修改版（开发者 etc），整体按 <strong>AGPL-3.0</strong> 发布，内置 MuPDF（AGPL-3.0）、PRoot（GPL-2.0）等组件，因此不能改按 MIT 发布。完整源码见 <a href="https://github.com/ETQWFD/etc">GitHub 仓库</a> 的 LICENSE 与 NOTICE。</p>
+        <p class="en">Reai is an AGPL-3.0 fork of RikkaHub (maintained by etc), bundling AGPL/GPL native components, so it cannot be relicensed under MIT. See the <a href="https://github.com/ETQWFD/etc">repository</a> LICENSE and NOTICE.</p>
+        <p><a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=vx0ORxV0lTvfqTswRKWGCpPT_68gESCZ&authKey=x2BUF4uTyNW%2BhrFAU7BdtEifob92M7ms3zhK5EA8U4bNgGUxsEjFUNvpu0uyNTzO&noverify=0&group_code=1057717202" rel="noopener">加入 QQ 群【AI交流群】 1057717202</a></p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    Reai 文档 · 开发者 etc · 基于 RikkaHub 的 armeabi-v7a 分叉。下载由 GitHub Releases 直接提供。
+  </div>
+</footer>
+</body>
+</html>
