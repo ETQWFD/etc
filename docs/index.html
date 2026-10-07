@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/png" href="reai-icon.png">
-<title>etc · 安卓 AI 聊天客户端（32 位 armv7）</title>
-<meta name="description" content="etc 是一个可在 32 位（armeabi-v7a）安卓手机上运行的 AI 聊天客户端，基于 RikkaHub 修改，支持自定义模型服务商。">
+<title>Reai · 安卓 AI 聊天客户端（32 位 / 64 位 / 虚拟机通用）</title>
+<meta name="description" content="Reai 是一个安卓 AI 聊天客户端，单个安装包同时支持 32 位、64 位 ARM 手机和 x86_64 模拟器虚拟机，基于 RikkaHub 修改，支持自定义模型服务商。">
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --line:#262d36; --fg:#e6e9ee; --muted:#9aa6b2;
@@ -75,21 +75,21 @@
 <main class="wrap">
   <div class="hero">
     <img src="reai-icon.png" alt="Reai" style="width:84px;height:84px;border-radius:20px;margin-bottom:18px">
-    <span class="tag">armeabi-v7a · 32 位安卓专用构建</span>
-    <h1>老手机也能跑的<br>AI 聊天客户端</h1>
-    <p class="lead">Reai 基于开源项目 RikkaHub 修改，专门补齐了 32 位 armv7 原生库，可以装在只有 32 位系统、或较老的安卓设备上。模型接口你自己填，支持 OpenAI、Anthropic、Google 等兼容协议。</p>
+    <span class="tag">armeabi-v7a · arm64-v8a · x86_64 一个包全支持</span>
+    <h1>手机和虚拟机<br>都能跑的 AI 聊天客户端</h1>
+    <p class="lead">Reai 基于开源项目 RikkaHub 修改，一个安装包内置 32 位 ARM、64 位 ARM 和 x86_64 三套原生库，老手机、新手机和安卓模拟器 / 虚拟机都能直接安装运行。模型接口你自己填，支持 OpenAI、Anthropic、Google 等兼容协议。</p>
     <div class="dl">
-      <a class="btn" id="dl" href="https://github.com/ETQWFD/etc/releases/latest/download/etc-armv7.apk" download>直接下载 APK</a>
+      <a class="btn" id="dl" href="https://github.com/ETQWFD/etc/releases/latest/download/Reai.apk" download>直接下载 APK</a>
       <a class="btn ghost" href="https://github.com/ETQWFD/etc">查看源码</a>
     </div>
     <p class="meta">
-      版本 <code id="ver">2.5.9-armv7</code> ·
-      架构 <code>armeabi-v7a</code> ·
+      版本 <code id="ver">2.6.0</code> ·
+      架构 <code>armeabi-v7a / arm64-v8a / x86_64</code> ·
       需要 <code>Android 8.0 (API 26)</code> 及以上 ·
-      大小 <code>39.3 MB</code>
+      大小 <code>86.1 MB</code>
     </p>
     <p class="meta">
-      SHA-256：<code>e4e66a44f0b34982a5ccb0d5c1a32158a32a64c3eefd51153412efe118633ea5</code>
+      SHA-256：<code>c2667ea51d6d1d2592c063b6756dfe0969da76dc11bb0e105ff2850ca24b7074</code>
     </p>
     <p class="meta">
       用户交流：<a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=vx0ORxV0lTvfqTswRKWGCpPT_68gESCZ&authKey=x2BUF4uTyNW%2BhrFAU7BdtEifob92M7ms3zhK5EA8U4bNgGUxsEjFUNvpu0uyNTzO&noverify=0&group_code=1057717202" rel="noopener">点击加入 QQ 群【AI交流群】（1057717202）</a>
@@ -102,7 +102,7 @@
       <div class="card"><h3>多服务商切换</h3><p>自定义 API 地址、密钥和模型列表，一套界面切换不同后端。</p></div>
       <div class="card"><h3>多模态输入</h3><p>支持图片、文本、PDF、Docx 等内容一起发给模型。</p></div>
       <div class="card"><h3>中文全文搜索</h3><p>内置 jieba 分词与拼音，聊天记录可按中文关键词检索。</p></div>
-      <div class="card"><h3>文档解析</h3><p>通过 MuPDF 在本地解析 PDF，32 位原生库已重新编译。</p></div>
+      <div class="card"><h3>文档解析</h3><p>通过 MuPDF 在本地解析 PDF，三套架构原生库均已就绪。</p></div>
       <div class="card"><h3>Markdown 渲染</h3><p>代码高亮、表格、公式、Mermaid 图表都能正常显示。</p></div>
       <div class="card"><h3>深色模式</h3><p>跟随系统外观，Material 风格界面。</p></div>
     </div>
@@ -111,8 +111,8 @@
   <section id="install">
     <h2>安装说明</h2>
     <div class="note">
-      这个安装包只包含 <strong>armeabi-v7a（32 位 ARM）</strong>原生库，面向 32 位手机。
-      较新的 64 位手机一般也能兼容运行 32 位程序；如果你需要 64 位原生包，请使用 RikkaHub 官方版本。
+      这一个安装包已包含 <strong>armeabi-v7a（32 位 ARM）、arm64-v8a（64 位 ARM）、x86_64（模拟器 / 虚拟机）</strong>三套原生库，系统会自动选用对应版本，无需再找不同安装包。
+      原生库已做 4K 页对齐且不压缩，真机和模拟器、虚拟机侧载都能正常安装，不会再提示安装包损坏。
       <br><br>
       下载后如果系统提示“未知来源”，在设置里允许当前浏览器安装应用即可。应用未上架应用商店，安装前可对照页面公布的 SHA-256 校验值核对文件。
     </div>
@@ -130,7 +130,7 @@
 
 <footer>
   <div class="wrap">
-    Reai —— 开发者 etc，RikkaHub 的 armeabi-v7a 分叉构建。本页面不收集任何信息，下载由 GitHub Releases 直接提供。
+    Reai —— 开发者 etc，RikkaHub 的多架构（32 位 / 64 位 / x86_64）分叉构建。本页面不收集任何信息，下载由 GitHub Releases 直接提供。
   </div>
 </footer>
 </body>

@@ -31,7 +31,7 @@ data class GithubRelease(
 
 object AppUpdater {
     private const val API_URL = "https://api.github.com/repos/ETQWFD/etc/releases/latest"
-    private const val APK_NAME = "etc-armv7.apk"
+    private const val APK_NAME = "Reai.apk"
 
     private val json = Json { ignoreUnknownKeys = true }
 
