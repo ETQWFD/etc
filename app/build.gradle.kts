@@ -30,8 +30,8 @@ android {
         applicationId = "me.rerere.rikkahub"
         minSdk = 26
         targetSdk = 37
-        versionCode = 195
-        versionName = "2.6.0"
+        versionCode = 196
+        versionName = "2.6.1"
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
@@ -102,7 +102,7 @@ android {
     }
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            useLegacyPackaging = true
             pickFirsts += "lib/*/libtermux.so"
         }
     }
