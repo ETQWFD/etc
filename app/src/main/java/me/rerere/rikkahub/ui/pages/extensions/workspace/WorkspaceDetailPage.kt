@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.pages.extensions.workspace
 
 import android.content.Intent
+import android.os.Build
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.activity.compose.BackHandler
@@ -560,7 +561,7 @@ private fun InstallRootfsDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    var url by rememberSaveable(workspace.id) { mutableStateOf(DEFAULT_ROOTFS_URL) }
+    var url by rememberSaveable(workspace.id) { mutableStateOf(defaultRootfsUrlForDevice()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -979,5 +980,21 @@ internal fun String.toShellStatusLabel(): String = when (this) {
     else -> lowercase()
 }
 
-private const val DEFAULT_ROOTFS_URL =
-    "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.3-base-arm64.tar.gz"
+private const val UBUNTU_BASE_ROOT =
+    "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-"
+
+/**
+ * 根据设备 ABI 选择匹配的 Ubuntu base rootfs：
+ * - armeabi-v7a（32 位 ARM）→ armhf
+ * - arm64-v8a → arm64
+ * - x86_64（模拟器/虚拟机）→ amd64
+ * 解决旧版只提供 arm64 链接、32 位手机下载后无法使用的问题。
+ */
+internal fun defaultRootfsUrlForDevice(): String {
+    val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: ""
+    return when {
+        abi.startsWith("arm64") -> "${UBUNTU_BASE_ROOT}arm64.tar.gz"
+        abi.startsWith("x86") || abi.startsWith("x86_64") -> "${UBUNTU_BASE_ROOT}amd64.tar.gz"
+        else -> "${UBUNTU_BASE_ROOT}armhf.tar.gz"
+    }
+}
