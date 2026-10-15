@@ -537,7 +537,12 @@ private fun RootfsProgress(progress: RootfsInstallProgress) {
             text = when (progress.stage) {
                 RootfsInstallStage.DOWNLOADING -> {
                     val total = progress.totalBytes?.let { " / ${it.fileSizeToString()}" }.orEmpty()
-                    stringResource(R.string.workspace_detail_downloading, progress.bytesRead.fileSizeToString(), total)
+                    val speed = if (progress.speedBytesPerSec > 0) {
+                        " · ${progress.speedBytesPerSec.fileSizeToString()}/s"
+                    } else {
+                        ""
+                    }
+                    stringResource(R.string.workspace_detail_downloading, progress.bytesRead.fileSizeToString(), total) + speed
                 }
 
                 RootfsInstallStage.EXTRACTING -> {

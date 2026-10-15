@@ -70,6 +70,7 @@ fun SettingLocalModelsPage() {
         File(context.filesDir, "models").apply { mkdirs() }
     }
     val progressMap = remember { mutableStateMapOf<String, Float>() }
+    val speedMap = remember { mutableStateMapOf<String, String>() }
     val runningMap = remember { mutableStateMapOf<String, Boolean>() }
 
     val chatModels = remember {
@@ -79,7 +80,7 @@ fun SettingLocalModelsPage() {
                 name = "Qwen2.5-0.5B-Instruct（32 位手机推荐）",
                 fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf",
                 sizeText = "约 400 MB",
-                url = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+                url = "https://hf-mirror.com/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
                 kind = "聊天模型",
             ),
             LocalModelEntry(
@@ -87,15 +88,15 @@ fun SettingLocalModelsPage() {
                 name = "Qwen2.5-1.5B-Instruct（64 位设备）",
                 fileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf",
                 sizeText = "约 1.0 GB",
-                url = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                url = "https://hf-mirror.com/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
                 kind = "聊天模型",
             ),
             LocalModelEntry(
-                id = "sd-turbo",
-                name = "Stable Diffusion Turbo（本地绘图，需高配设备）",
-                fileName = "sd-turbo-onnx.tar.gz",
-                sizeText = "约 2.5 GB",
-                url = "https://huggingface.co/onnx-community/stable-diffusion-turbo/resolve/main/onnx/model.tar.gz",
+                id = "sd-v1-4",
+                name = "Stable Diffusion v1.4（本地绘图 ONNX，需高配设备）",
+                fileName = "sd-v1-4-onnx.tar.gz",
+                sizeText = "约 3.1 GB",
+                url = "https://hf-mirror.com/bes-dev/stable-diffusion-v1-4-onnx/resolve/main/unet.tar.gz",
                 kind = "绘图模型",
             ),
         )
@@ -138,6 +139,7 @@ fun SettingLocalModelsPage() {
 
             items(chatModels, key = { it.id }) { entry ->
                 val progress = progressMap[entry.id] ?: 0f
+                val speed = speedMap[entry.id]
                 val running = runningMap[entry.id] == true
                 val downloaded = isDownloaded(entry)
 
@@ -174,7 +176,11 @@ fun SettingLocalModelsPage() {
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
-                                text = stringResource(R.string.local_models_downloading, (progress * 100).toInt()),
+                                text = if (speed != null) {
+                                    stringResource(R.string.local_models_downloading_speed, (progress * 100).toInt(), speed)
+                                } else {
+                                    stringResource(R.string.local_models_downloading, (progress * 100).toInt())
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
@@ -213,6 +219,8 @@ fun SettingLocalModelsPage() {
                                         scope.launch {
                                             runningMap[entry.id] = true
                                             progressMap[entry.id] = 0f
+                                            var lastBytes = 0L
+                                            var lastNanos = System.nanoTime()
                                             try {
                                                 ChunkedDownloader.download(
                                                     client = client,
@@ -222,6 +230,14 @@ fun SettingLocalModelsPage() {
                                                     onProgress = { done, total ->
                                                         if (total > 0) {
                                                             progressMap[entry.id] = (done.toFloat() / total).coerceIn(0f, 1f)
+                                                            val now = System.nanoTime()
+                                                            val elapsedSec = (now - lastNanos) / 1_000_000_000.0
+                                                            if (elapsedSec >= 1.0) {
+                                                                val rate = ((done - lastBytes) / elapsedSec).toLong()
+                                                                lastBytes = done
+                                                                lastNanos = now
+                                                                speedMap[entry.id] = rate.toSpeedString()
+                                                            }
                                                         }
                                                     },
                                                 )
@@ -275,3 +291,9 @@ data class LocalModelEntry(
     val url: String,
     val kind: String,
 )
+
+private fun Long.toSpeedString(): String = when {
+    this >= 1024L * 1024L -> "%.1f MB/s".format(this / (1024.0 * 1024.0))
+    this >= 1024L -> "%.0f KB/s".format(this / 1024.0)
+    else -> "$this B/s"
+}

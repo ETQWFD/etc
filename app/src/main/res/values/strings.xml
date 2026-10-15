@@ -1601,6 +1601,7 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_page_desc">Download chat (GGUF) and image (ONNX/SD) models directly. Multi-connection download for speed; after download you can copy the path and load it in a local inference service (e.g. llama.cpp in the workspace terminal).</string>
   <string name="local_models_download">Download</string>
   <string name="local_models_downloading">Downloading… %1$d%%</string>
+  <string name="local_models_downloading_speed">Downloading… %1$d%% · %2$s</string>
   <string name="local_models_downloaded">Download complete</string>
   <string name="local_models_failed">Download failed</string>
   <string name="local_models_copy_path">Copy path</string>

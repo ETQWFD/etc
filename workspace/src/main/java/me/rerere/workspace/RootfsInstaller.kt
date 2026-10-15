@@ -5,10 +5,13 @@ import java.io.EOFException
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.file.Files
 import java.util.Locale
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
 import java.util.zip.GZIPInputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -57,6 +60,111 @@ class RootfsInstaller(
         target: File,
         onProgress: (RootfsInstallProgress) -> Unit,
     ) {
+        val probe = URL(url).openConnection() as HttpURLConnection
+        probe.connectTimeout = CONNECT_TIMEOUT_MS
+        probe.readTimeout = READ_TIMEOUT_MS
+        probe.instanceFollowRedirects = true
+        probe.requestMethod = "HEAD"
+        val totalBytes: Long
+        try {
+            val code = probe.responseCode
+            require(code in 200..299) { "Rootfs download failed: HTTP $code" }
+            totalBytes = probe.contentLengthLong.takeIf { it > 0 } ?: -1L
+        } finally {
+            probe.disconnect()
+        }
+
+        target.parentFile?.mkdirs()
+        // 服务器不告知大小（或过小）时退化单连接；否则按 Range 分块并行下载
+        if (totalBytes < MIN_CHUNK_SIZE) {
+            downloadSingle(url, target, totalBytes, onProgress)
+            return
+        }
+
+        val chunkCount = DOWNLOAD_CHUNKS.coerceAtMost(((totalBytes + MIN_CHUNK_SIZE - 1) / MIN_CHUNK_SIZE).toInt())
+        val parts = (0 until chunkCount).map { File(target.parentFile, "${target.name}.part$it") }
+        val ranges = (0 until chunkCount).map { i ->
+            val start = totalBytes * i / chunkCount
+            val end = if (i == chunkCount - 1) totalBytes - 1 else totalBytes * (i + 1) / chunkCount - 1
+            start to end
+        }
+        // 断点续传：已完整的分片直接跳过
+        val existing = parts.mapIndexed { i, part ->
+            if (part.isFile && part.length() == ranges[i].second - ranges[i].first + 1) {
+                part.length()
+            } else {
+                part.delete()
+                0L
+            }
+        }
+        val startedAt = System.nanoTime()
+        val executor = Executors.newFixedThreadPool(chunkCount) { r ->
+            Thread(r, "rootfs-download").apply { isDaemon = true }
+        }
+        val doneBytes = java.util.concurrent.atomic.AtomicLong(existing.sum())
+        val lastReport = java.util.concurrent.atomic.AtomicLong(0)
+        try {
+            val futures = ranges.indices.map { i ->
+                executor.submit {
+                    downloadRange(url, ranges[i].first + existing[i], ranges[i].second, parts[i])
+                    val added = doneBytes.addAndGet(ranges[i].second - ranges[i].first - existing[i] + 1)
+                    val last = lastReport.get()
+                    if (added - last >= PROGRESS_STEP_BYTES && lastReport.compareAndSet(last, added)) {
+                        onProgress(
+                            RootfsInstallProgress(
+                                stage = RootfsInstallStage.DOWNLOADING,
+                                bytesRead = added.coerceAtMost(totalBytes),
+                                totalBytes = totalBytes,
+                                speedBytesPerSec = rateOf(startedAt, added),
+                            )
+                        )
+                    }
+                }
+            }
+            futures.forEach { it.get() }
+        } catch (e: ExecutionException) {
+            val cause = e.cause
+            if (cause is InterruptedException) throw cause
+            throw cause ?: e
+        } finally {
+            executor.shutdownNow()
+        }
+        // 合并分片
+        RandomAccessFile(target, "rw").use { out ->
+            out.setLength(totalBytes)
+            for (i in parts.indices) {
+                val part = parts[i]
+                if (!part.isFile || part.length() != ranges[i].second - ranges[i].first + 1) {
+                    throw IllegalStateException("Rootfs chunk $i incomplete")
+                }
+                part.inputStream().use { input ->
+                    val buffer = ByteArray(BUFFER_SIZE)
+                    while (true) {
+                        checkInterrupted()
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        out.write(buffer, 0, read)
+                    }
+                }
+                part.delete()
+            }
+        }
+        onProgress(
+            RootfsInstallProgress(
+                stage = RootfsInstallStage.DOWNLOADING,
+                bytesRead = totalBytes,
+                totalBytes = totalBytes,
+                speedBytesPerSec = rateOf(startedAt, totalBytes),
+            )
+        )
+    }
+
+    private fun downloadSingle(
+        url: String,
+        target: File,
+        totalBytes: Long,
+        onProgress: (RootfsInstallProgress) -> Unit,
+    ) {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = CONNECT_TIMEOUT_MS
         connection.readTimeout = READ_TIMEOUT_MS
@@ -64,44 +172,80 @@ class RootfsInstaller(
         try {
             val code = connection.responseCode
             require(code in 200..299) { "Rootfs download failed: HTTP $code" }
-            val totalBytes = connection.contentLengthLong.takeIf { it > 0 }
+            val total = connection.contentLengthLong.takeIf { it > 0 } ?: totalBytes.takeIf { it > 0 }
             target.parentFile?.mkdirs()
             connection.inputStream.use { input ->
                 target.outputStream().use { output ->
                     val buffer = ByteArray(BUFFER_SIZE)
                     var bytesRead = 0L
                     var lastReportBytes = 0L
+                    var lastReportNanos = System.nanoTime()
                     while (true) {
                         checkInterrupted()
                         val read = input.read(buffer)
                         if (read < 0) break
                         output.write(buffer, 0, read)
                         bytesRead += read
-                        if (bytesRead - lastReportBytes >= PROGRESS_STEP_BYTES || bytesRead == totalBytes) {
+                        val now = System.nanoTime()
+                        if (bytesRead - lastReportBytes >= PROGRESS_STEP_BYTES || bytesRead == total) {
+                            val elapsedSec = (now - lastReportNanos) / 1_000_000_000.0
+                            val speed = if (elapsedSec > 0) {
+                                ((bytesRead - lastReportBytes) / elapsedSec).toLong()
+                            } else {
+                                0L
+                            }
                             lastReportBytes = bytesRead
+                            lastReportNanos = now
                             onProgress(
                                 RootfsInstallProgress(
                                     stage = RootfsInstallStage.DOWNLOADING,
                                     bytesRead = bytesRead,
-                                    totalBytes = totalBytes,
+                                    totalBytes = total,
+                                    speedBytesPerSec = speed,
                                 )
                             )
                         }
-                    }
-                    if (bytesRead == 0L) {
-                        onProgress(
-                            RootfsInstallProgress(
-                                stage = RootfsInstallStage.DOWNLOADING,
-                                bytesRead = 0,
-                                totalBytes = totalBytes,
-                            )
-                        )
                     }
                 }
             }
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun downloadRange(url: String, start: Long, end: Long, part: File) {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.connectTimeout = CONNECT_TIMEOUT_MS
+        connection.readTimeout = READ_TIMEOUT_MS
+        connection.instanceFollowRedirects = true
+        connection.setRequestProperty("Range", "bytes=$start-$end")
+        try {
+            val code = connection.responseCode
+            require(code == 206 || code in 200..299) { "Rootfs chunk download failed: HTTP $code" }
+            val input = connection.inputStream
+            RandomAccessFile(part, "rw").use { raf ->
+                val buffer = ByteArray(BUFFER_SIZE)
+                var written = 0L
+                while (true) {
+                    checkInterrupted()
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    raf.write(buffer, 0, read)
+                    written += read
+                }
+                require(written == end - start + 1) {
+                    "Rootfs chunk size mismatch: got $written, expected ${end - start + 1}"
+                }
+            }
+            input.close()
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun rateOf(startedNanos: Long, bytes: Long): Long {
+        val elapsed = (System.nanoTime() - startedNanos) / 1_000_000_000.0
+        return if (elapsed > 0) (bytes / elapsed).toLong() else 0L
     }
 
     internal fun extractTar(
@@ -531,5 +675,7 @@ class RootfsInstaller(
         private const val PROGRESS_STEP_BYTES = 512 * 1024
         private const val CONNECT_TIMEOUT_MS = 30_000
         private const val READ_TIMEOUT_MS = 60_000
+        private const val DOWNLOAD_CHUNKS = 4
+        private const val MIN_CHUNK_SIZE = 8L * 1024 * 1024
     }
 }

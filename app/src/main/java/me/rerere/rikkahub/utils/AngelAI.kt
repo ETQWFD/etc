@@ -31,15 +31,14 @@ object AngelAI {
         .build()
 
     /**
-     * 从设置中挑选当前启用的 OpenAI 兼容 provider 作为决策大脑。
-     * 无可用 provider 时返回 null（页面会引导去配置）。
+     * 从设置中挑选当前启用的 provider 作为决策大脑。
+     * 支持 OpenAI 兼容、Google Gemini、Claude 三种协议；无可用 provider 时返回 null。
      */
-    fun pickDecisionProvider(settings: me.rerere.rikkahub.data.datastore.Settings): ProviderSetting.OpenAI? {
+    fun pickDecisionProvider(settings: me.rerere.rikkahub.data.datastore.Settings): ProviderSetting? {
         val chatModelId = settings.chatModelId
-        val provider = settings.providers.firstOrNull { p ->
+        return settings.providers.firstOrNull { p ->
             p.enabled && p.models.any { it.id == chatModelId }
         } ?: settings.providers.firstOrNull { it.enabled }
-        return provider as? ProviderSetting.OpenAI
     }
 
     /**
@@ -48,7 +47,7 @@ object AngelAI {
      * {"done":false,"reason":"...","actions":[{"type":"click","text":"设置"},{"type":"input","text":"你好"}]}
      */
     suspend fun planActions(
-        provider: ProviderSetting.OpenAI,
+        provider: ProviderSetting,
         screen: String,
         task: String,
     ): AngelPlan = withContext(Dispatchers.IO) {
@@ -63,37 +62,12 @@ object AngelAI {
             3. 任务完成时输出 {"done":true,"actions":[]}。
             4. 一次最多 3 个动作。
         """.trimIndent()
+        val userPrompt = "任务：$task\n\n当前屏幕：\n${screen.take(4000)}"
 
-        val body = buildJsonObject {
-            put("model", provider.models.firstOrNull()?.id?.toString() ?: "gpt-4o-mini")
-            put("temperature", 0.2)
-            putJsonArray("messages") {
-                add(
-                    buildJsonObject {
-                        put("role", "system")
-                        put("content", systemPrompt)
-                    }
-                )
-                add(
-                    buildJsonObject {
-                        put("role", "user")
-                        put("content", "任务：$task\n\n当前屏幕：\n${screen.take(4000)}")
-                    }
-                )
-            }
-        }
-
-        val request = Request.Builder()
-            .url("${provider.baseUrl}${provider.chatCompletionsPath}")
-            .header("Authorization", "Bearer ${provider.apiKey}")
-            .post(json.encodeToString(body).toRequestBody("application/json".toMediaType()))
-            .build()
-
-        val text = buildClient().newCall(request).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                throw IllegalStateException("HTTP ${resp.code} ${resp.body?.string()?.take(200)}")
-            }
-            resp.body?.string().orEmpty()
+        val text = when (provider) {
+            is ProviderSetting.OpenAI -> callOpenAI(provider, systemPrompt, userPrompt)
+            is ProviderSetting.Google -> callGoogle(provider, systemPrompt, userPrompt)
+            is ProviderSetting.Claude -> callClaude(provider, systemPrompt, userPrompt)
         }
 
         val content = runCatching {
@@ -105,6 +79,112 @@ object AngelAI {
         }.getOrDefault("")
 
         parsePlan(content)
+    }
+
+    private fun callOpenAI(provider: ProviderSetting.OpenAI, system: String, user: String): String {
+        val body = buildJsonObject {
+            put("model", provider.models.firstOrNull()?.id?.toString() ?: "gpt-4o-mini")
+            put("temperature", 0.2)
+            putJsonArray("messages") {
+                add(buildJsonObject {
+                    put("role", "system")
+                    put("content", system)
+                })
+                add(buildJsonObject {
+                    put("role", "user")
+                    put("content", user)
+                })
+            }
+        }
+        val request = Request.Builder()
+            .url("${provider.baseUrl}${provider.chatCompletionsPath}")
+            .header("Authorization", "Bearer ${provider.apiKey}")
+            .post(json.encodeToString(body).toRequestBody("application/json".toMediaType()))
+            .build()
+        return buildClient().newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("HTTP ${resp.code} ${resp.body?.string()?.take(200)}")
+            }
+            resp.body?.string().orEmpty()
+        }
+    }
+
+    private fun callGoogle(provider: ProviderSetting.Google, system: String, user: String): String {
+        val modelId = provider.models.firstOrNull()?.id?.toString() ?: "gemini-2.0-flash"
+        val body = buildJsonObject {
+            putJsonArray("contents") {
+                add(buildJsonObject {
+                    put("role", "user")
+                    putJsonArray("parts") {
+                        add(buildJsonObject { put("text", "$system\n\n$user") })
+                    }
+                })
+            }
+            put("generationConfig", buildJsonObject {
+                put("temperature", 0.2)
+            })
+        }
+        val url = if (provider.vertexAI) {
+            "https://${provider.location}-aiplatform.googleapis.com/v1/projects/${provider.projectId}/locations/${provider.location}/publishers/google/models/$modelId:generateContent"
+        } else {
+            "${provider.baseUrl}/models/$modelId:generateContent"
+        }
+        val request = Request.Builder()
+            .url(url)
+            .header("x-goog-api-key", provider.apiKey)
+            .post(json.encodeToString(body).toRequestBody("application/json".toMediaType()))
+            .build()
+        val text = buildClient().newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("HTTP ${resp.code} ${resp.body?.string()?.take(200)}")
+            }
+            resp.body?.string().orEmpty()
+        }
+        // Gemini 响应：candidates[0].content.parts[0].text
+        return runCatching {
+            val parts = json.parseToJsonElement(text).jsonObject
+                .get("candidates")?.jsonArray?.get(0)?.jsonObject
+                ?.get("content")?.jsonObject
+                ?.get("parts")?.jsonArray
+            parts?.joinToString("\n") { el ->
+                el.jsonObject["text"]?.jsonPrimitive?.content.orEmpty()
+            }.orEmpty()
+        }.getOrDefault("")
+    }
+
+    private fun callClaude(provider: ProviderSetting.Claude, system: String, user: String): String {
+        val body = buildJsonObject {
+            put("model", provider.models.firstOrNull()?.id?.toString() ?: "claude-3-5-haiku-latest")
+            put("max_tokens", 2048)
+            put("temperature", 0.2)
+            put("system", system)
+            putJsonArray("messages") {
+                add(buildJsonObject {
+                    put("role", "user")
+                    put("content", user)
+                })
+            }
+        }
+        val request = Request.Builder()
+            .url("${provider.baseUrl}/messages")
+            .header("x-api-key", provider.apiKey)
+            .header("anthropic-version", "2023-06-01")
+            .post(json.encodeToString(body).toRequestBody("application/json".toMediaType()))
+            .build()
+        val text = buildClient().newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("HTTP ${resp.code} ${resp.body?.string()?.take(200)}")
+            }
+            resp.body?.string().orEmpty()
+        }
+        // Claude 响应：content[] 中 type=text 的 text 字段
+        return runCatching {
+            json.parseToJsonElement(text).jsonObject
+                .get("content")?.jsonArray
+                ?.joinToString("\n") { el ->
+                    el.jsonObject["text"]?.jsonPrimitive?.content.orEmpty()
+                }.orEmpty()
+        }.getOrDefault("")
     }
 
     private fun parsePlan(raw: String): AngelPlan {

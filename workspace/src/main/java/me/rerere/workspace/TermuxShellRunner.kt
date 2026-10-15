@@ -24,6 +24,9 @@ class TermuxShellRunner : WorkspaceShellRunner {
         val home = File(linuxDir, "home").apply { mkdirs() }
         context.tempDir.mkdirs()
 
+        // Termux 官方通过 LD_PRELOAD=libtermux-exec.so 包装 exec，让子进程在 Android 限制下正常工作
+        val execSo = File(prefix, "lib/libtermux-exec.so")
+
         val process = ProcessBuilder(
             bash.absolutePath,
             "-c",
@@ -49,6 +52,9 @@ class TermuxShellRunner : WorkspaceShellRunner {
                 environment()["PAGER"] = "cat"
                 // Android 原生二进制需要 ld library path 传入 linker
                 environment()["TERMUX_APP__LD_LIBRARY_PATH"] = "${prefix.absolutePath}/lib"
+                if (execSo.isFile) {
+                    environment()["LD_PRELOAD"] = execSo.absolutePath
+                }
             }
             .start()
 

@@ -34,6 +34,8 @@ data class RootfsInstallProgress(
     val totalBytes: Long? = null,
     val entriesExtracted: Int = 0,
     val currentEntry: String? = null,
+    /** 下载速率（字节/秒），由下载器统计 */
+    val speedBytesPerSec: Long = 0,
 )
 
 data class WorkspaceConfig(

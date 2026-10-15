@@ -1601,6 +1601,7 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_page_desc">直接下載本地聊天模型（GGUF）與繪圖模型（ONNX/SD）。採用多線程加速下載；下載後可複制路徑，在工作區終端用本地推理服務（如 llama.cpp）加載使用。</string>
   <string name="local_models_download">下載</string>
   <string name="local_models_downloading">下載中… %1$d%%</string>
+  <string name="local_models_downloading_speed">下載中… %1$d%% · %2$s</string>
   <string name="local_models_downloaded">下載完成</string>
   <string name="local_models_failed">下載失敗</string>
   <string name="local_models_copy_path">複制路徑</string>
