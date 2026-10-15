@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/png" href="reai-icon.png">
-<title>Reai · 安卓 AI 聊天客户端（32 位 / 64 位 / 虚拟机通用）</title>
-<meta name="description" content="Reai 是一个安卓 AI 聊天客户端，单个安装包同时支持 32 位、64 位 ARM 手机和 x86_64 模拟器虚拟机，基于 RikkaHub 修改，支持自定义模型服务商。">
+<title>RikkaHub etc 2.0 · 安卓 AI 客户端（32 位 / 64 位 / 虚拟机通用）</title>
+<meta name="description" content="RikkaHub etc 2.0 是安卓 AI 聊天客户端，单个安装包同时支持 32 位、64 位 ARM 手机和 x86_64 模拟器虚拟机，内置 Termux 终端、Angel 模式、本地模型下载与三语切换。">
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --line:#262d36; --fg:#e6e9ee; --muted:#9aa6b2;
@@ -35,7 +35,7 @@
   .tag{display:inline-block;font-size:13px;color:var(--accent);border:1px solid var(--accent);
     border-radius:999px;padding:3px 12px;margin-bottom:20px}
   h1{font-size:40px;line-height:1.2;margin:0 0 14px;letter-spacing:-.5px}
-  .lead{font-size:18px;color:var(--muted);max-width:640px;margin:0 0 30px}
+  .lead{font-size:18px;color:var(--muted);max-width:680px;margin:0 0 30px}
   .dl{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
   .btn{display:inline-block;background:var(--accent);color:var(--accent-fg);font-weight:600;
     padding:13px 26px;border-radius:10px;text-decoration:none;font-size:16px}
@@ -62,7 +62,7 @@
 <body>
 <header class="nav">
   <div class="wrap">
-    <a class="brand" href="#">Re<span>ai</span></a>
+    <a class="brand" href="#">RikkaHub <span>etc 2.0</span></a>
     <nav>
       <a href="#features">功能</a>
       <a href="docs.html">文档</a>
@@ -74,22 +74,22 @@
 
 <main class="wrap">
   <div class="hero">
-    <img src="reai-icon.png" alt="Reai" style="width:84px;height:84px;border-radius:20px;margin-bottom:18px">
+    <img src="reai-icon.png" alt="RikkaHub etc 2.0" style="width:84px;height:84px;border-radius:20px;margin-bottom:18px">
     <span class="tag">armeabi-v7a · arm64-v8a · x86_64 一个包全支持</span>
-    <h1>手机和虚拟机<br>都能跑的 AI 聊天客户端</h1>
-    <p class="lead">Reai 基于开源项目 RikkaHub 修改，一个安装包内置 32 位 ARM、64 位 ARM 和 x86_64 三套原生库，老手机、新手机和安卓模拟器 / 虚拟机都能直接安装运行。模型接口你自己填，支持 OpenAI、Anthropic、Google 等兼容协议。</p>
+    <h1>手机和虚拟机<br>都能跑的 AI 客户端</h1>
+    <p class="lead">RikkaHub etc 2.0 由开源项目 RikkaHub 修改而来（开发者 etc），一个安装包内置 32 位 ARM、64 位 ARM 和 x86_64 三套原生库，老手机、新手机和安卓模拟器 / 虚拟机都能直接安装运行。内置 Termux 终端与 Angel 模式，模型接口自己填，支持 OpenAI、Anthropic、Google 等兼容协议。</p>
     <div class="dl">
       <a class="btn" id="dl" href="https://github.com/ETQWFD/etc/releases/latest/download/Reai.apk" download>直接下载 APK</a>
       <a class="btn ghost" href="https://github.com/ETQWFD/etc">查看源码</a>
     </div>
     <p class="meta">
-      版本 <code id="ver">2.6.3</code> ·
+      版本 <code id="ver">2.7.0</code> ·
       架构 <code>armeabi-v7a / arm64-v8a / x86_64</code> ·
       需要 <code>Android 8.0 (API 26)</code> 及以上 ·
       大小 <code>57.6 MB</code>
     </p>
     <p class="meta">
-      SHA-256：<code>8437de3a25b7d1c7c2ade8b31d3f22ceb852a5a27056fd665e79f5d8e65201a6</code>
+      SHA-256：<code>8a1fd9ad220522b6fe7e5295b8fc4354a729bbe0fa48d0f6733668f3bddfe3dd</code>
     </p>
     <p class="meta">
       用户交流：<a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=vx0ORxV0lTvfqTswRKWGCpPT_68gESCZ&authKey=x2BUF4uTyNW%2BhrFAU7BdtEifob92M7ms3zhK5EA8U4bNgGUxsEjFUNvpu0uyNTzO&noverify=0&group_code=1057717202" rel="noopener">点击加入 QQ 群【AI交流群】（1057717202）</a>
@@ -99,12 +99,12 @@
   <section id="features">
     <h2>能做什么</h2>
     <div class="grid">
+      <div class="card"><h3>Termux 终端</h3><p>工作区终端改用 Termux 核心，无需 root 即可用，32 / 64 位都有对应包，解决了旧版 Ubuntu rootfs 的 GLIBC 版本问题。</p></div>
+      <div class="card"><h3>Angel 模式</h3><p>通过无障碍权限让 AI 读取屏幕并替你点击、输入、滚动，一句话交给 AI 操作手机。</p></div>
+      <div class="card"><h3>本地模型下载</h3><p>内置 GGUF 聊天模型与 ONNX 绘图模型下载，多线程分块加速，下载完在工作区终端用 llama.cpp 直接加载。</p></div>
+      <div class="card"><h3>三语切换</h3><p>简体中文、繁体中文、English 一键切换，界面、设置、说明全部翻译。</p></div>
       <div class="card"><h3>多服务商切换</h3><p>自定义 API 地址、密钥和模型列表，一套界面切换不同后端。</p></div>
-      <div class="card"><h3>多模态输入</h3><p>支持图片、文本、PDF、Docx 等内容一起发给模型。</p></div>
-      <div class="card"><h3>中文全文搜索</h3><p>内置 jieba 分词与拼音，聊天记录可按中文关键词检索。</p></div>
-      <div class="card"><h3>文档解析</h3><p>通过 MuPDF 在本地解析 PDF，三套架构原生库均已就绪。</p></div>
-      <div class="card"><h3>Markdown 渲染</h3><p>代码高亮、表格、公式、Mermaid 图表都能正常显示。</p></div>
-      <div class="card"><h3>深色模式</h3><p>跟随系统外观，Material 风格界面。</p></div>
+      <div class="card"><h3>应用内更新</h3><p>检查 GitHub 新版本，分块加速下载后直接跳转系统安装器完成安装。</p></div>
     </div>
   </section>
 
@@ -121,7 +121,7 @@
   <section id="source">
     <h2>源码与许可</h2>
     <ul>
-      <li>本程序是 <a href="https://github.com/rikkahub/rikkahub" rel="noopener">RikkaHub</a> 的修改版（fork），显示名改为 Reai（开发者 etc），原作者版权与许可全部保留。</li>
+      <li>本程序是 <a href="https://github.com/rikkahub/rikkahub" rel="noopener">RikkaHub</a> 的修改版（fork），显示名改为 RikkaHub etc 2.0（开发者 etc），原作者版权与许可全部保留。</li>
       <li>整体按 <strong>AGPL-3.0</strong> 发布（上游即为 AGPL-3.0，且包含 GPL/AGPL 许可的原生组件），<strong>不能</strong>改按 MIT 发布。完整源码随 Release 一并提供。</li>
       <li>内置原生组件：MuPDF（AGPL-3.0）、PRoot/talloc（GPL/LGPL）、simple 分词（MIT），许可细节见仓库 <code>NOTICE</code>。</li>
     </ul>
@@ -130,7 +130,7 @@
 
 <footer>
   <div class="wrap">
-    Reai —— 开发者 etc，RikkaHub 的多架构（32 位 / 64 位 / x86_64）分叉构建。本页面不收集任何信息，下载由 GitHub Releases 直接提供。
+    RikkaHub etc 2.0 —— 开发者 etc，RikkaHub 的多架构（32 位 / 64 位 / x86_64）分叉构建。本页面不收集任何信息，下载由 GitHub Releases 直接提供。
   </div>
 </footer>
 </body>

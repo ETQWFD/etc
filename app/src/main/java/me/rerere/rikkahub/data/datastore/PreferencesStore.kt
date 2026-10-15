@@ -576,6 +576,7 @@ data class Settings(
     @Transient
     val init: Boolean = false,
     val dynamicColor: Boolean = true,
+    val language: String = "system",
     val themeId: String = PresetThemes[0].id,
     val customThemes: List<CustomTheme> = emptyList(),
     val developerMode: Boolean = false,

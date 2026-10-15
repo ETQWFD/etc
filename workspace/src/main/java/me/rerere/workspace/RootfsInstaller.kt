@@ -10,6 +10,8 @@ import java.net.URL
 import java.nio.file.Files
 import java.util.Locale
 import java.util.zip.GZIPInputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import org.tukaani.xz.XZInputStream
 
 class RootfsInstaller(
@@ -33,7 +35,11 @@ class RootfsInstaller(
             stagingDir.deleteRecursively()
             stagingDir.mkdirs()
             download(url, archive, onProgress)
-            extractTar(archive, stagingDir, format, onProgress)
+            if (format == ArchiveFormat.ZIP) {
+                extractZip(archive, stagingDir, onProgress)
+            } else {
+                extractTar(archive, stagingDir, format, onProgress)
+            }
             linuxDir.deleteRecursively()
             require(stagingDir.renameTo(linuxDir)) {
                 "Failed to move rootfs into workspace"
@@ -214,6 +220,113 @@ class RootfsInstaller(
         }.getOrThrow()
     }
 
+    /**
+     * Termux bootstrap 包（zip）解压：
+     * - zip 根即 $PREFIX（条目如 bin/bash、lib/libc.so），落盘到 usr/ 子目录
+     *   （linuxDir/usr/bin/bash 与 WorkspaceManager.isUsableRootfs 判定一致）
+     * - SYMLINKS.txt 记录格式为 "绝对目标←相对链接"，目标以
+     *   /data/data/com.termux/files/usr 为前缀，需替换为当前 PREFIX；链接相对 PREFIX
+     * - 解压后 bin/ 下的可执行文件补上执行位
+     */
+    internal fun extractZip(
+        archive: File,
+        targetDir: File,
+        onProgress: (RootfsInstallProgress) -> Unit,
+    ) {
+        val prefixDir = File(targetDir, "usr").apply { mkdirs() }
+        val symlinks = mutableListOf<Pair<String, String>>()
+        var entries = 0
+        ZipInputStream(BufferedInputStream(archive.inputStream())).use { zip ->
+            var entry: ZipEntry?
+            while (zip.nextEntry.also { entry = it } != null) {
+                checkInterrupted()
+                val e = entry!!
+                val name = normalizeZipPath(e.name)
+                if (name.isBlank()) continue
+                if (name == "SYMLINKS.txt") {
+                    val lines = zip.readBytes().toString(Charsets.UTF_8).lineSequence()
+                    for (line in lines) {
+                        val trimmed = line.trim()
+                        if (trimmed.isBlank()) continue
+                        val parts = trimmed.split("←")
+                        if (parts.size == 2) {
+                            symlinks += parts[0].trim() to parts[1].trim()
+                        }
+                    }
+                    continue
+                }
+                val target = prefixDir.safeResolve(name)
+                target.parentFile?.mkdirs()
+                if (e.isDirectory) {
+                    target.mkdirs()
+                } else {
+                    target.outputStream().use { out ->
+                        val buffer = ByteArray(BUFFER_SIZE)
+                        while (true) {
+                            checkInterrupted()
+                            val read = zip.read(buffer)
+                            if (read < 0) break
+                            out.write(buffer, 0, read)
+                        }
+                    }
+                    if (name.startsWith("bin/") || name.startsWith("libexec/")) {
+                        target.setExecutable(true, false)
+                    }
+                }
+                entries++
+                onProgress(
+                    RootfsInstallProgress(
+                        stage = RootfsInstallStage.EXTRACTING,
+                        entriesExtracted = entries,
+                        currentEntry = name,
+                    )
+                )
+            }
+        }
+        // 建立符号链接：绝对目标前缀 /data/data/com.termux/files/usr 映射到当前 PREFIX
+        val termuxPrefix = "/data/data/com.termux/files/usr"
+        for ((linkTarget, linkPath) in symlinks) {
+            checkInterrupted()
+            if (linkPath.isBlank()) continue
+            val linkFile = prefixDir.safeResolve(linkPath.removePrefix("./"))
+            linkFile.parentFile?.mkdirs()
+            val resolvedTarget = if (linkTarget.startsWith(termuxPrefix)) {
+                prefixDir.safeResolve(linkTarget.removePrefix(termuxPrefix + "/"))
+            } else {
+                val base = File(linkFile.parentFile ?: prefixDir, linkTarget).canonicalFile
+                val root = prefixDir.canonicalFile
+                if (base.path == root.path || base.path.startsWith(root.path + File.separator)) {
+                    base
+                } else {
+                    linkFile.parentFile!!.toPath().relativize(base.toPath()).toFile()
+                }
+            }
+            linkFile.delete()
+            runCatching {
+                Files.createSymbolicLink(linkFile.toPath(), resolvedTarget.toPath())
+            }.recoverCatching { error ->
+                if (error !is IOException && error !is UnsupportedOperationException && error !is SecurityException) {
+                    throw error
+                }
+                // 无法建软链时复制目标（Android 老版本受限场景）
+                if (resolvedTarget.isFile) {
+                    resolvedTarget.copyTo(linkFile, overwrite = true)
+                }
+            }.getOrThrow()
+        }
+    }
+
+    private fun normalizeZipPath(path: String): String {
+        require(!path.contains('\u0000')) { "Rootfs entry path contains invalid character" }
+        val segments = path
+            .replace('\\', '/')
+            .trim()
+            .split('/')
+            .filter { it.isNotEmpty() && it != "." }
+        require(segments.none { it == ".." }) { "Rootfs entry escapes target directory: $path" }
+        return segments.joinToString("/")
+    }
+
     private fun InputStream.readTarHeader(): TarHeader? {
         val header = ByteArray(TAR_BLOCK_SIZE)
         val read = readFullyOrEnd(header)
@@ -391,6 +504,9 @@ class RootfsInstaller(
         },
         TAR_XZ("tar.xz") {
             override fun wrapStream(input: InputStream): InputStream = XZInputStream(input)
+        },
+        ZIP("zip") {
+            override fun wrapStream(input: InputStream): InputStream = input
         };
 
         abstract fun wrapStream(input: InputStream): InputStream
@@ -400,6 +516,7 @@ class RootfsInstaller(
                 val path = url.substringBefore('?').substringBefore('#')
                 return when {
                     path.endsWith(".tar.xz") || path.endsWith(".txz") -> TAR_XZ
+                    path.endsWith(".zip") -> ZIP
                     else -> TAR_GZ
                 }
             }

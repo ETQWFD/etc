@@ -980,21 +980,22 @@ internal fun String.toShellStatusLabel(): String = when (this) {
     else -> lowercase()
 }
 
-private const val UBUNTU_BASE_ROOT =
-    "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-"
+private const val TERMUX_BOOTSTRAP_BASE =
+    "https://github.com/termux/termux-packages/releases/download/bootstrap-2026.10.11-r1%2Bapt.android-7/bootstrap-"
 
 /**
- * 根据设备 ABI 选择匹配的 Ubuntu base rootfs：
- * - armeabi-v7a（32 位 ARM）→ armhf
- * - arm64-v8a → arm64
- * - x86_64（模拟器/虚拟机）→ amd64
- * 解决旧版只提供 arm64 链接、32 位手机下载后无法使用的问题。
+ * 根据设备 ABI 选择匹配的 Termux bootstrap（原生 ELF，无需 root/PRoot，32/64 位均可直接运行）：
+ * - armeabi-v7a（32 位 ARM）→ bootstrap-arm.zip
+ * - arm64-v8a → bootstrap-aarch64.zip
+ * - x86_64（模拟器/虚拟机）→ bootstrap-x86_64.zip
+ * 取代旧版 Ubuntu rootfs（GLIBC 版本不匹配、32 位缺包等问题）。
  */
 internal fun defaultRootfsUrlForDevice(): String {
     val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: ""
     return when {
-        abi.startsWith("arm64") -> "${UBUNTU_BASE_ROOT}arm64.tar.gz"
-        abi.startsWith("x86") || abi.startsWith("x86_64") -> "${UBUNTU_BASE_ROOT}amd64.tar.gz"
-        else -> "${UBUNTU_BASE_ROOT}armhf.tar.gz"
+        abi.startsWith("arm64") -> "${TERMUX_BOOTSTRAP_BASE}aarch64.zip"
+        abi.startsWith("x86_64") -> "${TERMUX_BOOTSTRAP_BASE}x86_64.zip"
+        abi.startsWith("x86") -> "${TERMUX_BOOTSTRAP_BASE}i686.zip"
+        else -> "${TERMUX_BOOTSTRAP_BASE}arm.zip"
     }
 }

@@ -43,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.AiBrain01
 import me.rerere.hugeicons.stroke.AiMagic
 import me.rerere.hugeicons.stroke.Alert01
 import me.rerere.hugeicons.stroke.Book01
@@ -56,6 +57,7 @@ import me.rerere.hugeicons.stroke.GlobalSearch
 import me.rerere.hugeicons.stroke.Image02
 import me.rerere.hugeicons.stroke.ImageUpload
 import me.rerere.hugeicons.stroke.InLove
+import me.rerere.hugeicons.stroke.LanguageCircle
 import me.rerere.hugeicons.stroke.LookTop
 import me.rerere.hugeicons.stroke.McpServer
 import me.rerere.hugeicons.stroke.Megaphone01
@@ -80,6 +82,7 @@ import me.rerere.rikkahub.ui.context.Navigator
 import me.rerere.rikkahub.ui.hooks.rememberColorMode
 import me.rerere.rikkahub.ui.theme.ColorMode
 import me.rerere.rikkahub.ui.theme.CustomColors
+import me.rerere.rikkahub.utils.AppLocale
 import me.rerere.rikkahub.utils.joinQQGroup
 import me.rerere.rikkahub.utils.openUrl
 import me.rerere.rikkahub.utils.plus
@@ -168,6 +171,33 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         headlineContent = { Text(stringResource(R.string.setting_page_preferences)) },
                     )
                     item(
+                        onClick = {
+                            val current = settings.language
+                            val next = when (current) {
+                                "zh" -> "zh-rTW"
+                                "zh-rTW" -> "en"
+                                else -> "zh"
+                            }
+                            AppLocale.languageCode = next
+                            vm.updateSettings(settings.copy(language = next))
+                        },
+                        leadingContent = { Icon(HugeIcons.LanguageCircle, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_language_desc)) },
+                        headlineContent = {
+                            Text(stringResource(R.string.setting_page_language))
+                        },
+                        trailingContent = {
+                            Text(
+                                text = when (settings.language) {
+                                    "zh" -> stringResource(R.string.setting_page_language_zh)
+                                    "zh-rTW" -> stringResource(R.string.setting_page_language_zh_tw)
+                                    else -> stringResource(R.string.setting_page_language_en)
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        },
+                    )
+                    item(
                         onClick = { navController.navigate(Screen.Assistant) },
                         leadingContent = { Icon(HugeIcons.LookTop, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_assistant_desc)) },
@@ -178,6 +208,18 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         leadingContent = { Icon(HugeIcons.Package, null) },
                         supportingContent = { Text(stringResource(R.string.setting_page_extensions_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_extensions)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingAngel) },
+                        leadingContent = { Icon(HugeIcons.AiBrain01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_angel_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_angel)) },
+                    )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingLocalModels) },
+                        leadingContent = { Icon(HugeIcons.Download01, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_local_models_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_local_models)) },
                     )
                 }
             }

@@ -16,6 +16,10 @@ class ProotShellRunner(
     private val patcher: RootfsPatcher = RootfsPatcher(),
 ) : WorkspaceShellRunner {
     override fun execute(context: WorkspaceShellContext): WorkspaceCommandResult {
+        // Termux bootstrap 布局（usr/bin/bash，bionic 原生 ELF）不经过 PRoot，直接原生执行
+        if (File(context.linuxDir, "usr/bin/bash").isFile) {
+            return TermuxShellRunner().execute(context)
+        }
         if (!WorkspaceManager.isUsableRootfs(context.linuxDir)) {
             return WorkspaceCommandResult(
                 exitCode = 127,

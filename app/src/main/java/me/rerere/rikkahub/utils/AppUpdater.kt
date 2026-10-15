@@ -68,38 +68,22 @@ object AppUpdater {
         context: Context,
         url: String,
         onProgress: (Int) -> Unit,
-    ): File = withContext(Dispatchers.IO) {
+    ): File {
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         val target = File(dir, APK_NAME)
-        client.newCall(
-            Request.Builder().url(url).get()
-                .header("User-Agent", "Reai/${BuildConfig.VERSION_NAME}")
-                .build()
-        ).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IllegalStateException("HTTP ${response.code}")
-            }
-            val body = response.body
-            val total = body.contentLength()
-            body.byteStream().use { input ->
-                java.io.FileOutputStream(target).use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var downloaded = 0L
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read == -1) break
-                        output.write(buffer, 0, read)
-                        downloaded += read
-                        if (total > 0) {
-                            onProgress(((downloaded * 100) / total).toInt().coerceIn(0, 99))
-                        }
-                    }
-                    output.flush()
+        ChunkedDownloader.download(
+            client = client,
+            url = url,
+            target = target,
+            userAgent = "Reai/${BuildConfig.VERSION_NAME}",
+            onProgress = { downloaded, total ->
+                if (total > 0) {
+                    onProgress(((downloaded * 100) / total).toInt().coerceIn(0, 99))
                 }
-            }
-        }
+            },
+        )
         onProgress(100)
-        target
+        return target
     }
 
     fun installApk(context: Context, file: File) {

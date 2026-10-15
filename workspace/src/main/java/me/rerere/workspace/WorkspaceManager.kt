@@ -259,13 +259,19 @@ class WorkspaceManager(
 
         private val ROOT_NAME_REGEX = Regex("[A-Za-z0-9._-]+")
 
-        /** Rootfs 是否可用, 以 /bin/sh 存在为准 */
+        /** Rootfs 是否可用：兼容传统 Linux rootfs（bin/sh）与 Termux bootstrap（usr/bin/bash） */
         fun isUsableRootfs(linuxDir: File): Boolean =
-            linuxDir.isDirectory && linuxDir.hasRootfsEntry("bin/sh")
+            linuxDir.isDirectory && (
+                linuxDir.hasRootfsEntry("bin/sh") ||
+                    linuxDir.hasRootfsEntry("usr/bin/bash")
+                )
 
-        /** Rootfs 内使用的 shell: 优先 bash, 没有时 (如 Alpine minirootfs) 回退到 /bin/sh */
-        fun rootfsShell(linuxDir: File): String =
-            if (linuxDir.hasRootfsEntry("bin/bash")) "/bin/bash" else "/bin/sh"
+        /** Rootfs 内使用的 shell：Termux 布局优先 usr/bin/bash，传统布局优先 bin/bash，再回退 /bin/sh */
+        fun rootfsShell(linuxDir: File): String = when {
+            linuxDir.hasRootfsEntry("usr/bin/bash") -> "/usr/bin/bash"
+            linuxDir.hasRootfsEntry("bin/bash") -> "/bin/bash"
+            else -> "/bin/sh"
+        }
 
         // Alpine 等发行版的 /bin/sh 是指向 /bin/busybox 的绝对路径软链, 在宿主机上解析不到目标,
         // 只有 proot 内才能正确解析, 所以软链本身存在即视为存在
