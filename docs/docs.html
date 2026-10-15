@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Reai 使用文档 · 32 位 armv7 安卓 AI 客户端</title>
-<meta name="description" content="Reai 使用文档：安装、配置模型服务商、创建助手与对话、扩展与本地工具、32 位手机常见问题。">
+<title>RikkaHub etc 2.0 使用文档 · 安卓 AI 客户端（32 位 / 64 位 / 虚拟机通用）</title>
+<meta name="description" content="RikkaHub etc 2.0 使用文档：安装、配置模型服务商、创建助手与对话、扩展与本地工具、32 位手机常见问题。">
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --line:#262d36; --fg:#e6e9ee; --muted:#9aa6b2;
@@ -67,7 +67,7 @@
 <body>
 <header class="nav">
   <div class="wrap">
-    <a class="brand" href="index.html"><img src="reai-icon.png" alt="Reai">Re<span>ai</span></a>
+    <a class="brand" href="index.html"><img src="reai-icon.png" alt="RikkaHub etc 2.0">RikkaHub <span>etc 2.0</span></a>
     <nav>
       <a href="index.html">首页</a>
       <a href="docs.html">文档</a>
@@ -78,8 +78,8 @@
 
 <main class="wrap">
   <div class="hero">
-    <h1 class="zh">Reai 使用文档</h1>
-    <h1 class="en">Reai Documentation</h1>
+    <h1 class="zh">RikkaHub etc 2.0 使用文档</h1>
+    <h1 class="en">RikkaHub etc 2.0 Documentation</h1>
     <p class="lead zh">面向 32 位（armeabi-v7a）安卓手机的 AI 聊天客户端。本文讲清楚怎么装、怎么填接口、怎么开始用。</p>
     <p class="lead en">An AI chat client built for 32-bit (armeabi-v7a) Android phones. Install, configure a model provider, and start chatting.</p>
     <button class="btn" type="button" onclick="document.body.classList.toggle('show-en')" style="background:transparent;color:var(--link);border:1px solid var(--line)">中文 / English</button>
@@ -117,14 +117,14 @@
       <section id="provider">
         <h2 class="zh">2. 配置模型服务商</h2>
         <h2 class="en">2. Add a model provider</h2>
-        <p class="zh">Reai 不内置任何模型，也不提供服务器。第一次打开，进入 <strong>设置 → 模型与服务 → 服务商</strong>，添加一个兼容 OpenAI 协议的接口。</p>
+        <p class="zh">RikkaHub etc 2.0 不内置任何模型，也不提供服务器。第一次打开，进入 <strong>设置 → 模型与服务 → 服务商</strong>，添加一个兼容 OpenAI 协议的接口。</p>
         <table class="kv zh">
           <tr><th>接口地址 (Base URL)</th><td>填到 <code>/v1</code> 这一层，例如 <code>https://api.example.com/v1</code>。</td></tr>
           <tr><th>密钥 (API Key)</th><td>填你在服务商后台生成的密钥。</td></tr>
           <tr><th>模型 (Model)</th><td>手动填入模型名，或在支持的服务上点“拉取模型列表”。</td></tr>
         </table>
         <p class="zh">保存后回到 <strong>设置 → 默认模型</strong>，把默认对话、向量（搜索）等模型选上，就可以正常聊天了。</p>
-        <p class="en">Reai ships with no model or server. Go to <strong>Settings → Providers</strong>, add an OpenAI-compatible endpoint (base URL ending with <code>/v1</code>, API key, model name), then pick it under <strong>Default model</strong>.</p>
+        <p class="en">RikkaHub etc 2.0 ships with no model or server. Go to <strong>Settings → Providers</strong>, add an OpenAI-compatible endpoint (base URL ending with <code>/v1</code>, API key, model name), then pick it under <strong>Default model</strong>.</p>
       </section>
 
       <section id="assistant">
@@ -203,8 +203,8 @@
       <section id="license">
         <h2 class="zh">8. 许可与来源</h2>
         <h2 class="en">8. License</h2>
-        <p class="zh">Reai 是开源项目 <a href="https://github.com/rikkahub/rikkahub" rel="noopener">RikkaHub</a> 的修改版（开发者 etc），整体按 <strong>AGPL-3.0</strong> 发布，内置 MuPDF（AGPL-3.0）、PRoot（GPL-2.0）等组件，因此不能改按 MIT 发布。完整源码见 <a href="https://github.com/ETQWFD/etc">GitHub 仓库</a> 的 LICENSE 与 NOTICE。</p>
-        <p class="en">Reai is an AGPL-3.0 fork of RikkaHub (maintained by etc), bundling AGPL/GPL native components, so it cannot be relicensed under MIT. See the <a href="https://github.com/ETQWFD/etc">repository</a> LICENSE and NOTICE.</p>
+        <p class="zh">RikkaHub etc 2.0 是开源项目 <a href="https://github.com/rikkahub/rikkahub" rel="noopener">RikkaHub</a> 的修改版（开发者 etc），整体按 <strong>AGPL-3.0</strong> 发布，内置 MuPDF（AGPL-3.0）、PRoot（GPL-2.0）等组件，因此不能改按 MIT 发布。完整源码见 <a href="https://github.com/ETQWFD/etc">GitHub 仓库</a> 的 LICENSE 与 NOTICE。</p>
+        <p class="en">RikkaHub etc 2.0 is an AGPL-3.0 fork of RikkaHub (maintained by etc), bundling AGPL/GPL native components, so it cannot be relicensed under MIT. See the <a href="https://github.com/ETQWFD/etc">repository</a> LICENSE and NOTICE.</p>
         <p><a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=vx0ORxV0lTvfqTswRKWGCpPT_68gESCZ&authKey=x2BUF4uTyNW%2BhrFAU7BdtEifob92M7ms3zhK5EA8U4bNgGUxsEjFUNvpu0uyNTzO&noverify=0&group_code=1057717202" rel="noopener">加入 QQ 群【AI交流群】 1057717202</a></p>
       </section>
     </div>
@@ -213,7 +213,7 @@
 
 <footer>
   <div class="wrap">
-    Reai 文档 · 开发者 etc · 基于 RikkaHub 的 armeabi-v7a 分叉。下载由 GitHub Releases 直接提供。
+    RikkaHub etc 2.0 文档 · 开发者 etc · 基于 RikkaHub 的 armeabi-v7a 分叉。下载由 GitHub Releases 直接提供。
   </div>
 </footer>
 </body>
