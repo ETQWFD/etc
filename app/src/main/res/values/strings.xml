@@ -294,6 +294,7 @@
   <string name="chat_page_message_count">%d messages</string>
   <string name="chat_page_move_to_assistant">Move to Assistant</string>
   <string name="chat_page_new_chat">New Chat</string>
+  <string name="chat_page_angel">Angel mode (AI operates the phone)</string>
   <string name="chat_page_new_message">New message</string>
   <string name="chat_page_nickname_placeholder">Please enter nickname</string>
   <string name="chat_page_no_conversations">No conversations</string>
@@ -410,6 +411,11 @@
   <string name="imggen_page_save_failed">Save failed: %1$s</string>
   <string name="imggen_page_settings_title">Image Generation Settings</string>
   <string name="imggen_page_title">Image Generation</string>
+  <string name="imggen_page_media_provider_select">Select drawing provider model</string>
+  <string name="imggen_page_media_provider_model">Drawing provider: %1$s</string>
+  <string name="imggen_page_media_provider_title">Drawing provider model</string>
+  <string name="imggen_page_media_provider_hint">Pick an image model from the drawing providers (configured in Settings → Drawing services)</string>
+  <string name="imggen_page_media_provider_empty">No drawing providers yet. Add one in Settings → Drawing services.</string>
   <string name="language_english">🇺🇸 English</string>
   <string name="language_french">🇫🇷 Français</string>
   <string name="language_german">🇩🇪 Deutsch</string>
@@ -1557,6 +1563,11 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="setting_media_page_models_desc">Model IDs are sent to the API as-is</string>
   <string name="setting_media_page_model_id">Model ID</string>
   <string name="setting_media_page_add_model">Add model</string>
+  <string name="setting_media_page_fetch_models">Fetch models</string>
+  <string name="setting_media_page_fetch_models_no_key">Enter the API key first</string>
+  <string name="setting_media_page_fetch_models_empty">The server returned no models</string>
+  <string name="setting_media_page_fetch_models_done">Fetched %1$d models</string>
+  <string name="setting_media_page_fetch_models_failed">Failed to fetch models: %1$s</string>
   <string name="video_player_error">Unable to play this video</string>
   <string name="video_player_open_with">Open with another app</string>
   <string name="search_picker_off">Off</string>

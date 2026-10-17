@@ -10,6 +10,7 @@ import me.rerere.mediagen.model.MediaGenerationModel
 import me.rerere.mediagen.model.MediaGenerationRequest
 import me.rerere.mediagen.model.MediaGenerationTask
 import me.rerere.mediagen.provider.providers.aliyun.AliyunMediaGenerationProvider
+import me.rerere.mediagen.provider.providers.fetchModelIds
 import me.rerere.mediagen.provider.providers.minimax.MiniMaxMediaGenerationProvider
 import me.rerere.mediagen.provider.providers.openai.OpenAIMediaGenerationProvider
 import me.rerere.mediagen.provider.providers.openrouter.OpenRouterMediaGenerationProvider
@@ -26,6 +27,7 @@ class MediaGenerationManager(
     private val volcengine = VolcengineMediaGenerationProvider(client)
     private val miniMax = MiniMaxMediaGenerationProvider(client)
     private val openRouter = OpenRouterMediaGenerationProvider(client)
+    private val httpClient = client
 
     suspend fun create(
         setting: MediaGenerationProviderSetting,
@@ -34,6 +36,22 @@ class MediaGenerationManager(
     ): Result<MediaGenerationTask> = withContext(Dispatchers.Default) {
         unsupportedKind(setting, model) ?: provider(setting).createUnsafe(setting, model, request)
     }
+
+    /**
+     * 拉取厂商可用模型 ID（配置页“获取模型”按钮）。
+     * OpenAI 兼容厂商走 GET {baseUrl}/models；阿里云/火山各有不同的列表接口，
+     * 目前统一先按 OpenAI 兼容的 /models 尝试，兼容网关和中转均可直接使用。
+     */
+    suspend fun fetchModels(setting: MediaGenerationProviderSetting): Result<List<String>> =
+        withContext(Dispatchers.Default) {
+            runCatching {
+                httpClient.fetchModelIds(
+                    url = "${setting.baseUrl.trimEnd('/')}/models",
+                    apiKey = setting.apiKey,
+                    provider = setting.name,
+                )
+            }
+        }
 
     suspend fun query(
         setting: MediaGenerationProviderSetting,

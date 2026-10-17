@@ -63,7 +63,16 @@ val viewModelModule = module {
         )
     }
     viewModelOf(::BackupVM)
-    viewModelOf(::ImgGenVM)
+    viewModel<ImgGenVM> {
+        ImgGenVM(
+            context = get(),
+            settingsStore = get(),
+            providerManager = get(),
+            genMediaRepository = get(),
+            filesManager = get(),
+            mediaGenerationManager = get(),
+        )
+    }
     viewModelOf(::MediaCreationSessionsVM)
     viewModel<MediaCreationVM> {
         MediaCreationVM(

@@ -26,6 +26,12 @@ import me.rerere.ai.provider.ProviderManager
 import me.rerere.ai.ui.ImageGenSize
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.common.android.appTempFolder
+import me.rerere.mediagen.model.MediaGenerationInput
+import me.rerere.mediagen.model.MediaGenerationModel
+import me.rerere.mediagen.model.MediaGenerationRequest
+import me.rerere.mediagen.model.MediaGenerationTask
+import me.rerere.mediagen.model.MediaGenerationOutput
+import me.rerere.mediagen.provider.MediaGenerationManager
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
 import me.rerere.rikkahub.data.datastore.findProvider
@@ -73,6 +79,7 @@ class ImgGenVM(
     val providerManager: ProviderManager,
     val genMediaRepository: GenMediaRepository,
     private val filesManager: FilesManager,
+    private val mediaGenerationManager: MediaGenerationManager,
 ) : AndroidViewModel(context) {
     private val _prompt = MutableStateFlow("")
     val prompt: StateFlow<String> = _prompt
@@ -155,30 +162,36 @@ class ImgGenVM(
                 _currentGeneratedImages.value = emptyList()
 
                 val settings = settingsStore.settingsFlow.first()
-                val model = settings.findModelById(settings.imageGenerationModelId)
-                    ?: throw IllegalStateException("No model selected")
-
-                val provider = model.findProvider(settings.providers)
-                    ?: throw IllegalStateException("Provider not found")
-
                 val requestPrompt = _prompt.value
-                val params = ImageGenerationParams(
-                    model = model,
-                    prompt = requestPrompt,
-                    numOfImages = _numberOfImages.value,
-                    size = _size.value,
-                    customHeaders = model.customHeaders,
-                    customBody = model.customBodies
-                )
 
-                val images = providerManager.getProviderByType(provider)
-                    .generateImage(provider, params)
+                // 优先聊天 provider 的 IMAGE 模型，未配置时回退到绘图服务商
+                val model = settings.findModelById(settings.imageGenerationModelId)
+                val provider = model?.findProvider(settings.providers)
+                if (model != null && provider != null) {
+                    val params = ImageGenerationParams(
+                        model = model,
+                        prompt = requestPrompt,
+                        numOfImages = _numberOfImages.value,
+                        size = _size.value,
+                        customHeaders = model.customHeaders,
+                        customBody = model.customBodies
+                    )
 
-                collectImageGeneration(
-                    images = images,
-                    prompt = requestPrompt,
-                    modelName = model.displayName,
-                )
+                    val images = providerManager.getProviderByType(provider)
+                        .generateImage(provider, params)
+
+                    collectImageGeneration(
+                        images = images,
+                        prompt = requestPrompt,
+                        modelName = model.displayName,
+                    )
+                } else {
+                    generateWithMediaProvider(
+                        prompt = requestPrompt,
+                        referencePaths = emptyList(),
+                        type = GenMediaEntity.TYPE_IMAGE_GENERATION,
+                    )
+                }
             } catch (e: Exception) {
                 if(e is CancellationException) return@launch
                 Log.e(TAG, "Failed to generate image", e)
@@ -199,34 +212,40 @@ class ImgGenVM(
                 _currentGeneratedImages.value = emptyList()
 
                 val settings = settingsStore.settingsFlow.first()
-                val model = settings.findModelById(settings.imageGenerationModelId)
-                    ?: throw IllegalStateException("No model selected")
-
-                val provider = model.findProvider(settings.providers)
-                    ?: throw IllegalStateException("Provider not found")
-
                 val requestPrompt = _prompt.value
                 val sourceImages = _referenceImages.value
-                val params = ImageEditParams(
-                    model = model,
-                    prompt = requestPrompt,
-                    images = sourceImages,
-                    numOfImages = _numberOfImages.value,
-                    size = _size.value,
-                    customHeaders = model.customHeaders,
-                    customBody = model.customBodies
-                )
 
-                val images = providerManager.getProviderByType(provider)
-                    .editImage(provider, params)
+                // 优先聊天 provider 的 IMAGE 模型，未配置时回退到绘图服务商
+                val model = settings.findModelById(settings.imageGenerationModelId)
+                val provider = model?.findProvider(settings.providers)
+                if (model != null && provider != null) {
+                    val params = ImageEditParams(
+                        model = model,
+                        prompt = requestPrompt,
+                        images = sourceImages,
+                        numOfImages = _numberOfImages.value,
+                        size = _size.value,
+                        customHeaders = model.customHeaders,
+                        customBody = model.customBodies
+                    )
 
-                collectImageGeneration(
-                    images = images,
-                    prompt = requestPrompt,
-                    modelName = model.displayName,
-                    type = GenMediaEntity.TYPE_IMAGE_EDIT,
-                    sourcePaths = sourceImages.joinToString("\n"),
-                )
+                    val images = providerManager.getProviderByType(provider)
+                        .editImage(provider, params)
+
+                    collectImageGeneration(
+                        images = images,
+                        prompt = requestPrompt,
+                        modelName = model.displayName,
+                        type = GenMediaEntity.TYPE_IMAGE_EDIT,
+                        sourcePaths = sourceImages.joinToString("\n"),
+                    )
+                } else {
+                    generateWithMediaProvider(
+                        prompt = requestPrompt,
+                        referencePaths = sourceImages,
+                        type = GenMediaEntity.TYPE_IMAGE_EDIT,
+                    )
+                }
             } catch (e: Exception) {
                 if (e is CancellationException) return@launch
                 Log.e(TAG, "Failed to edit image", e)
@@ -235,6 +254,63 @@ class ImgGenVM(
                 _isGenerating.value = false
             }
         }
+    }
+
+    /**
+     * 使用绘图服务商（mediaGenerationProviders，OpenAI 兼容等）生成图片。
+     * 模型由设置页 mediaImageModelId 指定；未指定时用第一个 IMAGE 模型。
+     */
+    private suspend fun generateWithMediaProvider(
+        prompt: String,
+        referencePaths: List<String>,
+        type: String,
+    ) {
+        val settings = settingsStore.settingsFlow.first()
+        val providers = settings.mediaGenerationProviders
+        if (providers.isEmpty()) {
+            throw IllegalStateException("No image generation model configured. 请先在设置中添加绘图服务商")
+        }
+        val target = settings.mediaImageModelId?.let { modelId ->
+            providers.firstNotNullOfOrNull { p -> p.models.firstOrNull { it.id == modelId }?.let { p to it } }
+        } ?: providers.firstNotNullOfOrNull { p ->
+            p.models.firstOrNull { it.kind == me.rerere.mediagen.model.MediaKind.IMAGE }?.let { p to it }
+        } ?: throw IllegalStateException("No image model in media providers")
+
+        val (providerSetting, mediaModel) = target
+        val inputs = referencePaths.map { path ->
+            MediaGenerationInput.Image(url = "file://$path")
+        }
+        val request = MediaGenerationRequest(
+            prompt = prompt,
+            inputs = inputs,
+            count = _numberOfImages.value,
+            resolution = _size.value.takeIf { it != ImageGenSize.AUTO.value },
+        )
+        val flow = mediaGenerationManager.generate(providerSetting, mediaModel, request)
+        val tasks = mutableListOf<MediaGenerationTask>()
+        flow.collect { tasks += it }
+        val final = tasks.lastOrNull()
+            ?: throw IllegalStateException("No response from media provider")
+        if (final.status == me.rerere.mediagen.model.MediaGenerationStatus.FAILED) {
+            throw IllegalStateException(final.error?.message ?: "Image generation failed")
+        }
+        if (final.outputs.isEmpty()) {
+            throw IllegalStateException("Media provider returned no images")
+        }
+        // 转成现有保存链路使用的 ImageGenerationItem（data 为 base64 或直接 URL）
+        val items = final.outputs.map { output ->
+            val data = output.data?.let { bytes ->
+                java.util.Base64.getEncoder().encodeToString(bytes)
+            } ?: output.url
+            ImageGenerationItem(data = data ?: "", mimeType = output.mimeType)
+        }
+        collectImageGeneration(
+            images = kotlinx.coroutines.flow.flow { items.forEach { emit(it) } },
+            prompt = prompt,
+            modelName = mediaModel.modelId,
+            type = type,
+            sourcePaths = referencePaths.joinToString("\n").ifEmpty { null },
+        )
     }
 
     fun cancelGeneration() {

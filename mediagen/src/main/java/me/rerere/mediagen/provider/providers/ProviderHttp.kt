@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -71,6 +72,44 @@ internal fun Request.Builder.postJson(body: JsonObject): Request.Builder =
         mediaGenerationJson.encodeToString(JsonObject.serializer(), body)
             .toRequestBody(jsonMediaType)
     )
+
+/**
+ * 从厂商拉取模型 ID 列表（配置页“获取模型”按钮用）。
+ * OpenAI 兼容接口统一走 GET {baseUrl}/models；阿里云/火山等特殊厂商由
+ * [me.rerere.mediagen.provider.MediaGenerationManager.fetchModels] 按类型分派。
+ */
+internal suspend fun OkHttpClient.fetchModelIds(
+    url: String,
+    apiKey: String,
+    provider: String,
+): List<String> = withContext(Dispatchers.IO) {
+    val request = bearerRequest(url, apiKey).get().build()
+    newCall(request).await().use { response ->
+        val text = response.body.string()
+        val body = runCatching { mediaGenerationJson.parseToJsonElement(text).jsonObject }
+            .getOrElse { JsonObject(emptyMap()) }
+        if (!response.isSuccessful) {
+            val error = body.obj("error")
+            val detail = error?.string("message") ?: body.string("message") ?: text
+            throw MediaGenerationApiException(
+                provider = provider,
+                statusCode = response.code,
+                code = error?.string("code") ?: body.string("code") ?: error?.string("type"),
+                message = detail,
+            )
+        }
+        val data = body["data"] as? JsonArray
+            ?: throw MediaGenerationApiException(
+                provider = provider,
+                statusCode = response.code,
+                code = null,
+                message = "响应里没有 data 字段，可能不是 OpenAI 兼容的模型列表接口",
+            )
+        data.mapNotNull { element ->
+            (element as? JsonObject)?.string("id")
+        }.distinct().filter { it.isNotBlank() }
+    }
+}
 
 internal fun JsonObject.string(name: String): String? =
     this[name]?.jsonPrimitive?.contentOrNull

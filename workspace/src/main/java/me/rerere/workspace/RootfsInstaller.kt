@@ -48,6 +48,7 @@ class RootfsInstaller(
                 "Failed to move rootfs into workspace"
             }
             patcher.patch(linuxDir)
+            verifyInstalled(linuxDir)
             onProgress(RootfsInstallProgress(stage = RootfsInstallStage.INSTALLED))
         } finally {
             archive.delete()
@@ -55,12 +56,66 @@ class RootfsInstaller(
         }
     }
 
+    /** 安装完成后的最小自检：bin/bash 存在且可执行，缺失时给出明确的修复提示 */
+    private fun verifyInstalled(linuxDir: File) {
+        val bash = File(File(linuxDir, "usr"), "bin/bash")
+        if (!bash.isFile) {
+            throw IllegalStateException("Rootfs 安装不完整：缺少 usr/bin/bash，请重新下载安装")
+        }
+        if (!bash.canExecute()) {
+            runCatching { bash.setExecutable(true, false) }
+            if (!bash.canExecute()) {
+                throw IllegalStateException("usr/bin/bash 无执行权限，请重新下载安装")
+            }
+        }
+    }
+
+    /**
+     * 官方源不可达或极慢时按顺序尝试镜像源（国内加速）。返回实际使用的 URL。
+     * 镜像源必须支持 Range，且与官方源内容一致（同一 bootstrap 包的转发）。
+     */
+    private fun resolveDownloadUrl(url: String): String {
+        if (MIRROR_PREFIXES.isEmpty()) return url
+        val candidates = buildList {
+            add(url)
+            MIRROR_PREFIXES.forEach { prefix ->
+                if (!url.startsWith(prefix)) add(prefix + url)
+            }
+        }
+        var lastCode = -1
+        for (candidate in candidates) {
+            try {
+                val probe = URL(candidate).openConnection() as HttpURLConnection
+                probe.connectTimeout = PROBE_TIMEOUT_MS
+                probe.readTimeout = PROBE_TIMEOUT_MS
+                probe.instanceFollowRedirects = true
+                probe.requestMethod = "HEAD"
+                val code = probe.responseCode
+                val length = probe.contentLengthLong
+                probe.disconnect()
+                lastCode = code
+                if (code in 200..299) {
+                    // 镜像转发时若拿不到大小，则放行（下载时再退化单连接）
+                    if (length > 0) return candidate
+                }
+            } catch (_: Exception) {
+                // 该镜像不可达，继续下一个
+            }
+        }
+        // 全部探测失败：官方源探测也失败时给出真实错误
+        if (url == candidates.first() && lastCode !in 200..299 && lastCode > 0) {
+            throw IllegalStateException("Rootfs download failed: HTTP $lastCode")
+        }
+        return url
+    }
+
     private fun download(
         url: String,
         target: File,
         onProgress: (RootfsInstallProgress) -> Unit,
     ) {
-        val probe = URL(url).openConnection() as HttpURLConnection
+        val effectiveUrl = resolveDownloadUrl(url)
+        val probe = URL(effectiveUrl).openConnection() as HttpURLConnection
         probe.connectTimeout = CONNECT_TIMEOUT_MS
         probe.readTimeout = READ_TIMEOUT_MS
         probe.instanceFollowRedirects = true
@@ -77,7 +132,7 @@ class RootfsInstaller(
         target.parentFile?.mkdirs()
         // 服务器不告知大小（或过小）时退化单连接；否则按 Range 分块并行下载
         if (totalBytes < MIN_CHUNK_SIZE) {
-            downloadSingle(url, target, totalBytes, onProgress)
+            downloadSingle(effectiveUrl, target, totalBytes, onProgress)
             return
         }
 
@@ -106,7 +161,7 @@ class RootfsInstaller(
         try {
             val futures = ranges.indices.map { i ->
                 executor.submit {
-                    downloadRange(url, ranges[i].first + existing[i], ranges[i].second, parts[i])
+                    downloadRange(effectiveUrl, ranges[i].first + existing[i], ranges[i].second, parts[i])
                     val added = doneBytes.addAndGet(ranges[i].second - ranges[i].first - existing[i] + 1)
                     val last = lastReport.get()
                     if (added - last >= PROGRESS_STEP_BYTES && lastReport.compareAndSet(last, added)) {
@@ -677,5 +732,14 @@ class RootfsInstaller(
         private const val READ_TIMEOUT_MS = 60_000
         private const val DOWNLOAD_CHUNKS = 4
         private const val MIN_CHUNK_SIZE = 8L * 1024 * 1024
+        private const val PROBE_TIMEOUT_MS = 10_000
+
+        // 国内 GitHub 加速镜像，按顺序尝试（转发同一文件，支持 Range）
+        private val MIRROR_PREFIXES = listOf(
+            "https://ghproxy.net/",
+            "https://gh-proxy.com/",
+            "https://ghfast.top/",
+            "https://mirror.ghproxy.com/",
+        )
     }
 }

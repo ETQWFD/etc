@@ -289,6 +289,7 @@
   <string name="chat_page_message_count">%d 則訊息</string>
   <string name="chat_page_move_to_assistant">移至助理</string>
   <string name="chat_page_new_chat">新聊天</string>
+  <string name="chat_page_angel">Angel 模式（AI 操作手機）</string>
   <string name="chat_page_new_message">新訊息</string>
   <string name="chat_page_nickname_placeholder">請輸入暱稱</string>
   <string name="chat_page_no_conversations">沒有對話記錄</string>
@@ -404,6 +405,11 @@
   <string name="imggen_page_save_failed">保存失敗： %1$s</string>
   <string name="imggen_page_settings_title">圖片生成設定</string>
   <string name="imggen_page_title">圖片生成</string>
+  <string name="imggen_page_media_provider_select">選擇繪圖服務商模型</string>
+  <string name="imggen_page_media_provider_model">繪圖服務商: %1$s</string>
+  <string name="imggen_page_media_provider_title">繪圖服務商模型</string>
+  <string name="imggen_page_media_provider_hint">從繪圖服務商中選擇圖像模型（在「設定 → 繪圖服務」中設定）</string>
+  <string name="imggen_page_media_provider_empty">還沒有繪圖服務商，請先在「設定 → 繪圖服務」中新增</string>
   <string name="language_english">🇺🇸 English</string>
   <string name="language_french">🇫🇷 Français</string>
   <string name="language_german">🇩🇪 Deutsch</string>
@@ -1507,6 +1513,11 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="setting_media_page_models_desc">模型 ID 會依原樣傳送至 API</string>
   <string name="setting_media_page_model_id">模型 ID</string>
   <string name="setting_media_page_add_model">新增模型</string>
+  <string name="setting_media_page_fetch_models">取得模型</string>
+  <string name="setting_media_page_fetch_models_no_key">請先填寫 API Key</string>
+  <string name="setting_media_page_fetch_models_empty">伺服器沒有回傳任何模型</string>
+  <string name="setting_media_page_fetch_models_done">已取得 %1$d 個模型</string>
+  <string name="setting_media_page_fetch_models_failed">取得模型失敗: %1$s</string>
   <string name="media_creation_page_last_frame_failed">無法從影片擷取最後一個影格</string>
   <string name="media_creation_page_asset_add_failed">無法新增此素材</string>
   <string name="media_creation_page_no_video_model">尚未設定影片模型</string>

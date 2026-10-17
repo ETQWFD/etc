@@ -60,7 +60,9 @@ import me.rerere.hugeicons.stroke.Cancel01
 import me.rerere.hugeicons.stroke.LeftToRightListBullet
 import me.rerere.hugeicons.stroke.Menu03
 import me.rerere.hugeicons.stroke.MessageAdd01
+import me.rerere.hugeicons.stroke.Sparkles
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
@@ -631,6 +633,7 @@ private fun TopBar(
 ) {
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
+    val navController = LocalNavController.current
     val titleState = useEditState<String> {
         onUpdateTitle(it)
     }
@@ -685,6 +688,12 @@ private fun TopBar(
             }
         },
         actions = {
+            IconButton(
+                onClick = { navController.navigate(Screen.SettingAngel) }
+            ) {
+                Icon(HugeIcons.Sparkles, stringResource(R.string.chat_page_angel))
+            }
+
             IconButton(
                 onClick = {
                     onClickMenu()

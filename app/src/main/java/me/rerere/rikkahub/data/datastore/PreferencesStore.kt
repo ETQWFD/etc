@@ -158,6 +158,7 @@ class SettingsStore(
 
         // 媒体生成
         val MEDIA_GENERATION_PROVIDERS = stringPreferencesKey("media_generation_providers")
+        val MEDIA_IMAGE_MODEL = stringPreferencesKey("media_image_model")
 
         // TTS
         val TTS_PROVIDERS = stringPreferencesKey("tts_providers")
@@ -211,6 +212,9 @@ class SettingsStore(
                 preferences[TRANSLATE_MODEL] = settings.translateModeId.toString()
                 preferences[ENABLE_SUGGESTION] = settings.enableSuggestion
                 preferences[IMAGE_GENERATION_MODEL] = settings.imageGenerationModelId.toString()
+                settings.mediaImageModelId?.let {
+                    preferences[MEDIA_IMAGE_MODEL] = it.toString()
+                } ?: preferences.remove(MEDIA_IMAGE_MODEL)
                 preferences[TITLE_PROMPT] = settings.titlePrompt
                 preferences[TRANSLATION_PROMPT] = settings.translatePrompt
                 preferences[TRANSLATE_THINKING_BUDGET] = settings.translateThinkingBudget
@@ -287,6 +291,7 @@ class SettingsStore(
                     ?: DEFAULT_AUTO_MODEL_ID,
                 enableSuggestion = preferences[ENABLE_SUGGESTION] != false,
                 imageGenerationModelId = preferences[IMAGE_GENERATION_MODEL]?.let { Uuid.parse(it) } ?: Uuid.random(),
+                mediaImageModelId = preferences[MEDIA_IMAGE_MODEL]?.let { Uuid.parse(it) },
                 titlePrompt = preferences[TITLE_PROMPT] ?: DEFAULT_TITLE_PROMPT,
                 translatePrompt = preferences[TRANSLATION_PROMPT] ?: DEFAULT_TRANSLATION_PROMPT,
                 translateThinkingBudget = preferences[TRANSLATE_THINKING_BUDGET] ?: 0,
@@ -587,6 +592,8 @@ data class Settings(
     val fastModelId: Uuid = Uuid.random(),
     val fastModelReasoningLevel: ReasoningLevel = ReasoningLevel.AUTO,
     val imageGenerationModelId: Uuid = Uuid.random(),
+    // 文生图使用绘图服务商（mediaGenerationProviders）时的模型 id；为空表示未选择
+    val mediaImageModelId: Uuid? = null,
     val titlePrompt: String = DEFAULT_TITLE_PROMPT,
     val translateModeId: Uuid = Uuid.random(),
     val translatePrompt: String = DEFAULT_TRANSLATION_PROMPT,

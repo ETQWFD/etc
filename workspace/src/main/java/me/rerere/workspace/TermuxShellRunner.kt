@@ -26,6 +26,11 @@ class TermuxShellRunner : WorkspaceShellRunner {
 
         // Termux 官方通过 LD_PRELOAD=libtermux-exec.so 包装 exec，让子进程在 Android 限制下正常工作
         val execSo = File(prefix, "lib/libtermux-exec.so")
+        val diagnostics = buildList {
+            if (!execSo.isFile) add("缺少 libtermux-exec.so")
+            if (!File(prefix, "lib").isDirectory) add("缺少 usr/lib 目录")
+            if (!File(prefix, "etc").isDirectory) add("缺少 usr/etc 目录")
+        }
 
         val process = ProcessBuilder(
             bash.absolutePath,
@@ -58,6 +63,16 @@ class TermuxShellRunner : WorkspaceShellRunner {
             }
             .start()
 
-        return process.readResult(context.timeoutMillis, context.stdin)
+        val result = process.readResult(context.timeoutMillis, context.stdin)
+        if (result.exitCode != 0 && result.stderr.isBlank()) {
+            return result.copy(
+                stderr = if (diagnostics.isEmpty()) {
+                    "bash 启动失败，请确认 rootfs 已完整解压后重试"
+                } else {
+                    "bash 启动失败: ${diagnostics.joinToString("; ")}"
+                }
+            )
+        }
+        return result
     }
 }

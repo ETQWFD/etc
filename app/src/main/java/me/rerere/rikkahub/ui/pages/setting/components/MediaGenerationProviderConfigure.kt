@@ -4,10 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -15,18 +21,30 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.dokar.sonner.ToastType
+import kotlinx.coroutines.launch
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.Add01
 import me.rerere.hugeicons.stroke.Delete01
+import me.rerere.hugeicons.stroke.Refresh03
 import me.rerere.mediagen.model.MediaGenerationModel
 import me.rerere.mediagen.model.MediaKind
+import me.rerere.mediagen.provider.MediaGenerationManager
 import me.rerere.mediagen.provider.MediaGenerationProviderSetting
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.FormItem
+import me.rerere.rikkahub.ui.context.LocalToaster
+import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 val MediaGenerationProviderSetting.typeName: String
     @Composable get() = when (this) {
@@ -116,12 +134,82 @@ fun MediaGenerationProviderConfigure(
             label = { Text(stringResource(R.string.setting_media_page_models)) },
             description = { Text(stringResource(R.string.setting_media_page_models_desc)) }
         ) {
+            FetchModelsButton(
+                setting = setting,
+                onModelsFetched = { ids ->
+                    // 保留现有已填的模型，把新拉到的追加进去；已有的行不受影响
+                    val existing = setting.models.mapNotNull { it.modelId.trim().takeIf(String::isNotBlank) }.toSet()
+                    val merged = setting.models.toMutableList()
+                    ids.filter { it !in existing }.forEach { id ->
+                        merged += MediaGenerationModel(
+                            modelId = id,
+                            kind = if (id.contains("video") || id.contains("veo") || id.contains("seedance") || id.contains("wan") && !id.contains("image")) MediaKind.VIDEO else MediaKind.IMAGE,
+                        )
+                    }
+                    onValueChange(setting.copyProvider(models = merged))
+                }
+            )
             MediaGenerationModelList(
                 models = setting.models,
                 supportedKinds = setting.supportedKinds,
                 onValueChange = { onValueChange(setting.copyProvider(models = it)) }
             )
         }
+    }
+}
+
+@Composable
+private fun FetchModelsButton(
+    setting: MediaGenerationProviderSetting,
+    onModelsFetched: (List<String>) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val manager: MediaGenerationManager = koinInject()
+    val toaster = LocalToaster.current
+    var fetching by remember { mutableStateOf(false) }
+    val textNoKey = stringResource(R.string.setting_media_page_fetch_models_no_key)
+    val textEmpty = stringResource(R.string.setting_media_page_fetch_models_empty)
+    val textDone = stringResource(R.string.setting_media_page_fetch_models_done)
+    val textFailed = stringResource(R.string.setting_media_page_fetch_models_failed)
+
+    OutlinedButton(
+        onClick = {
+            if (setting.apiKey.isBlank()) {
+                toaster.show(textNoKey, type = ToastType.Warning)
+                return@OutlinedButton
+            }
+            scope.launch {
+                fetching = true
+                try {
+                    manager.fetchModels(setting)
+                        .onSuccess { ids ->
+                            if (ids.isEmpty()) {
+                                toaster.show(textEmpty, type = ToastType.Warning)
+                            } else {
+                                onModelsFetched(ids)
+                                toaster.show(textDone.format(ids.size), type = ToastType.Success)
+                            }
+                        }
+                        .onFailure { e ->
+                            toaster.show(textFailed.format(e.message.orEmpty()), type = ToastType.Error)
+                        }
+                } finally {
+                    fetching = false
+                }
+            }
+        },
+        enabled = !fetching && setting.baseUrl.isNotBlank(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (fetching) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp))
+        } else {
+            Icon(HugeIcons.Refresh03, null, modifier = Modifier.size(18.dp))
+        }
+        Text(
+            stringResource(R.string.setting_media_page_fetch_models),
+            modifier = Modifier.padding(start = 6.dp),
+        )
     }
 }
 

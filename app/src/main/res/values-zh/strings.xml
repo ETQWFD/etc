@@ -294,6 +294,7 @@
   <string name="chat_page_message_count">%d 条消息</string>
   <string name="chat_page_move_to_assistant">移至助手</string>
   <string name="chat_page_new_chat">新聊天</string>
+  <string name="chat_page_angel">Angel 模式（AI 操作手机）</string>
   <string name="chat_page_new_message">新消息</string>
   <string name="chat_page_nickname_placeholder">请输入昵称</string>
   <string name="chat_page_no_conversations">没有对话记录</string>
@@ -409,6 +410,11 @@
   <string name="imggen_page_save_failed">保存失败: %1$s</string>
   <string name="imggen_page_settings_title">图片生成设置</string>
   <string name="imggen_page_title">图片生成</string>
+  <string name="imggen_page_media_provider_select">选择绘图服务商模型</string>
+  <string name="imggen_page_media_provider_model">绘图服务商: %1$s</string>
+  <string name="imggen_page_media_provider_title">绘图服务商模型</string>
+  <string name="imggen_page_media_provider_hint">从绘图服务商中选择图像模型（在「设置 → 绘图服务」中配置）</string>
+  <string name="imggen_page_media_provider_empty">还没有绘图服务商，请先在「设置 → 绘图服务」中添加</string>
   <string name="language_english">🇺🇸 English</string>
   <string name="language_french">🇫🇷 Français</string>
   <string name="language_german">🇩🇪 Deutsch</string>
@@ -1558,6 +1564,11 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="setting_media_page_models_desc">模型 ID 会原样下发给接口</string>
   <string name="setting_media_page_model_id">模型 ID</string>
   <string name="setting_media_page_add_model">添加模型</string>
+  <string name="setting_media_page_fetch_models">获取模型</string>
+  <string name="setting_media_page_fetch_models_no_key">请先填写 API Key</string>
+  <string name="setting_media_page_fetch_models_empty">服务端没有返回任何模型</string>
+  <string name="setting_media_page_fetch_models_done">已获取 %1$d 个模型</string>
+  <string name="setting_media_page_fetch_models_failed">获取模型失败: %1$s</string>
   <string name="video_player_error">无法播放这个视频</string>
   <string name="video_player_open_with">用其他应用打开</string>
   <string name="common_delete_confirm_message">您确定要删除“%s”吗？此操作无法撤销。</string>

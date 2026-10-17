@@ -75,6 +75,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -97,6 +98,7 @@ import me.rerere.hugeicons.stroke.Colors
 import me.rerere.hugeicons.stroke.Copy01
 import me.rerere.hugeicons.stroke.Delete01
 import me.rerere.hugeicons.stroke.FloppyDisk
+import me.rerere.hugeicons.stroke.Image02
 import me.rerere.hugeicons.stroke.Image03
 import me.rerere.hugeicons.stroke.Tools
 import me.rerere.rikkahub.R
@@ -406,6 +408,18 @@ private fun InputBar(
                 }
             )
 
+            // 绘图服务商入口：未配置聊天绘图模型时，从这里选 mediaGenerationProviders 的 IMAGE 模型
+            MediaProviderSelectorButton(
+                settings = settings,
+                onSelect = { modelId ->
+                    scope.launch {
+                        vm.settingsStore.update { oldSettings ->
+                            oldSettings.copy(mediaImageModelId = modelId)
+                        }
+                    }
+                }
+            )
+
             IconButton(
                 onClick = onShowSettings
             ) {
@@ -461,6 +475,132 @@ private fun InputBar(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MediaProviderSelectorButton(
+    settings: Settings,
+    onSelect: (Uuid?) -> Unit,
+) {
+    var showSheet by remember { mutableStateOf(false) }
+    val currentModel = settings.mediaImageModelId?.let { modelId ->
+        settings.mediaGenerationProviders.firstNotNullOfOrNull { p ->
+            p.models.firstOrNull { it.id == modelId }
+        }
+    }
+    IconButton(onClick = { showSheet = true }) {
+        if (currentModel != null) {
+            Icon(
+                HugeIcons.Image03,
+                contentDescription = stringResource(R.string.imggen_page_media_provider_model, currentModel.modelId),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            Icon(
+                HugeIcons.Image02,
+                contentDescription = stringResource(R.string.imggen_page_media_provider_select),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    if (showSheet) {
+        MediaProviderModelSheet(
+            settings = settings,
+            selectedModelId = settings.mediaImageModelId,
+            onSelect = { modelId ->
+                onSelect(modelId)
+                showSheet = false
+            },
+            onDismiss = { showSheet = false }
+        )
+    }
+}
+
+@Composable
+private fun MediaProviderModelSheet(
+    settings: Settings,
+    selectedModelId: Uuid?,
+    onSelect: (Uuid?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+    )
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.imggen_page_media_provider_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.imggen_page_media_provider_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            if (settings.mediaGenerationProviders.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.imggen_page_media_provider_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
+            } else {
+                settings.mediaGenerationProviders.forEach { provider ->
+                    val imageModels = provider.models.filter { it.kind == me.rerere.mediagen.model.MediaKind.IMAGE }
+                    if (imageModels.isNotEmpty()) {
+                        Text(
+                            text = provider.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        imageModels.forEach { model ->
+                            val selected = model.id == selectedModelId
+                            Surface(
+                                onClick = { onSelect(model.id) },
+                                shape = MaterialTheme.shapes.medium,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Checkbox(
+                                        checked = selected,
+                                        onCheckedChange = { if (it) onSelect(model.id) },
+                                    )
+                                    Text(
+                                        text = model.modelId,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
