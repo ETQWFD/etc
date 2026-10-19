@@ -26,6 +26,7 @@ data class GithubRelease(
     @SerialName("tag_name") val tagName: String = "",
     val name: String = "",
     val body: String = "",
+    @SerialName("published_at") val publishedAt: String = "",
     val assets: List<GithubAsset> = emptyList(),
 )
 

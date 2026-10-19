@@ -14,21 +14,13 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import me.rerere.common.http.await
 import me.rerere.rikkahub.AppScope
-import me.rerere.rikkahub.BuildConfig
 import okhttp3.OkHttpClient
-import okhttp3.Request
-
-private const val API_URL = "https://updates.rikka-ai.com/"
 
 class UpdateChecker(
     private val client: OkHttpClient,
     appScope: AppScope,
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
-
     val updateState: StateFlow<UiState<UpdateInfo>> = checkUpdate().stateIn(
         scope = appScope,
         started = SharingStarted.Lazily,
@@ -37,55 +29,55 @@ class UpdateChecker(
 
     private fun checkUpdate(): Flow<UiState<UpdateInfo>> = flow {
         emit(UiState.Loading)
+        val release = AppUpdater.fetchLatestRelease(client)
+            ?: throw Exception("Failed to fetch update info")
+        val version = AppUpdater.coreVersion(release.tagName)
+        if (version.isEmpty()) throw Exception("Invalid release tag")
+        val downloads = release.assets
+            .filter { it.name.endsWith(".apk", ignoreCase = true) }
+            .map { asset ->
+                UpdateDownload(
+                    name = asset.name,
+                    url = asset.browserDownloadUrl,
+                    size = formatSize(asset.size),
+                )
+            }
         emit(
             UiState.Success(
-                data = try {
-                    val response = client.newCall(
-                        Request.Builder()
-                            .url(API_URL)
-                            .get()
-                            .addHeader(
-                                "User-Agent",
-                                "RikkaHub ${BuildConfig.VERSION_NAME} #${BuildConfig.VERSION_CODE}"
-                            )
-                            .build()
-                    ).await()
-                    if (response.isSuccessful) {
-                        json.decodeFromString<UpdateInfo>(response.body.string())
-                    } else {
-                        throw Exception("Failed to fetch update info")
-                    }
-                } catch (e: Exception) {
-                    throw Exception("Failed to fetch update info", e)
-                }
+                UpdateInfo(
+                    version = version,
+                    publishedAt = release.publishedAt.ifEmpty { "1970-01-01T00:00:00Z" },
+                    changelog = release.body.ifBlank { "新版本已发布" },
+                    downloads = downloads,
+                )
             )
         )
     }.catch {
         emit(UiState.Error(it))
     }.flowOn(Dispatchers.IO)
 
+    private fun formatSize(bytes: Long): String = when {
+        bytes <= 0 -> "未知大小"
+        bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
+        bytes < 1024 * 1024 * 1024 -> "%.2f MB".format(bytes / (1024.0 * 1024.0))
+        else -> "%.2f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+    }
+
     fun downloadUpdate(context: Context, download: UpdateDownload) {
         runCatching {
             val request = DownloadManager.Request(download.url.toUri()).apply {
-                // 设置下载时通知栏的标题和描述
                 setTitle(download.name)
                 setDescription("正在下载更新包...")
-                // 下载完成后通知栏可见
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                // 允许在移动网络和WiFi下下载
                 setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
-                // 设置文件保存路径
                 setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, download.name)
-                // 允许下载的文件类型
                 setMimeType("application/vnd.android.package-archive")
             }
-            // 获取系统的DownloadManager
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             dm.enqueue(request)
-            // 你可以保存返回的downloadId到本地，以便后续查询下载进度或状态
         }.onFailure {
-            Toast.makeText(context, "Failed to update", Toast.LENGTH_SHORT).show()
-            context.openUrl(download.url) // 跳转到下载页面
+            Toast.makeText(context, "下载失败，请手动下载", Toast.LENGTH_SHORT).show()
+            context.openUrl(download.url)
         }
     }
 }
