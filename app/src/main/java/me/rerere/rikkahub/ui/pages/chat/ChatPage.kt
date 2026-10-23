@@ -62,7 +62,6 @@ import me.rerere.hugeicons.stroke.Menu03
 import me.rerere.hugeicons.stroke.MessageAdd01
 import me.rerere.hugeicons.stroke.Sparkles
 import me.rerere.rikkahub.R
-import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.Settings
 import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
@@ -79,6 +78,7 @@ import me.rerere.rikkahub.ui.components.ai.FilesPicker
 import me.rerere.rikkahub.ui.components.ai.SearchMode
 import me.rerere.rikkahub.ui.components.ai.completion.WorkspaceCompletionProvider
 import me.rerere.rikkahub.ui.components.ai.rememberChatAttachmentPickerActions
+import me.rerere.rikkahub.ui.components.ui.AngelQuickDialog
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.ui.context.Navigator
@@ -633,9 +633,16 @@ private fun TopBar(
 ) {
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
-    val navController = LocalNavController.current
+    var showAngel by remember { mutableStateOf(false) }
     val titleState = useEditState<String> {
         onUpdateTitle(it)
+    }
+
+    if (showAngel) {
+        AngelQuickDialog(
+            settings = settings,
+            onDismiss = { showAngel = false },
+        )
     }
 
     TopAppBar(
@@ -689,7 +696,7 @@ private fun TopBar(
         },
         actions = {
             IconButton(
-                onClick = { navController.navigate(Screen.SettingAngel) }
+                onClick = { showAngel = true }
             ) {
                 Icon(HugeIcons.Sparkles, stringResource(R.string.chat_page_angel))
             }

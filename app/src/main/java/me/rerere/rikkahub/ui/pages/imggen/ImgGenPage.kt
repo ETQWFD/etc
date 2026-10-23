@@ -36,17 +36,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
@@ -417,6 +421,15 @@ private fun InputBar(
                             oldSettings.copy(mediaImageModelId = modelId)
                         }
                     }
+                },
+                onQuickAdd = { provider ->
+                    scope.launch {
+                        vm.settingsStore.update { oldSettings ->
+                            oldSettings.copy(
+                                mediaGenerationProviders = oldSettings.mediaGenerationProviders + provider
+                            )
+                        }
+                    }
                 }
             )
 
@@ -483,6 +496,7 @@ private fun InputBar(
 private fun MediaProviderSelectorButton(
     settings: Settings,
     onSelect: (Uuid?) -> Unit,
+    onQuickAdd: (me.rerere.mediagen.provider.MediaGenerationProviderSetting) -> Unit,
 ) {
     var showSheet by remember { mutableStateOf(false) }
     val currentModel = settings.mediaImageModelId?.let { modelId ->
@@ -514,6 +528,7 @@ private fun MediaProviderSelectorButton(
                 onSelect(modelId)
                 showSheet = false
             },
+            onQuickAdd = onQuickAdd,
             onDismiss = { showSheet = false }
         )
     }
@@ -524,6 +539,7 @@ private fun MediaProviderModelSheet(
     settings: Settings,
     selectedModelId: Uuid?,
     onSelect: (Uuid?) -> Unit,
+    onQuickAdd: (me.rerere.mediagen.provider.MediaGenerationProviderSetting) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberBottomSheetState(
@@ -537,7 +553,8 @@ private fun MediaProviderModelSheet(
         Column(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -600,8 +617,131 @@ private fun MediaProviderModelSheet(
                     }
                 }
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            Text(
+                text = stringResource(R.string.imggen_page_media_quick_add),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            QuickConnectForm(
+                onSaved = onQuickAdd,
+            )
             Spacer(modifier = Modifier.height(12.dp))
         }
+    }
+}
+
+@Composable
+private fun QuickConnectForm(
+    onSaved: (me.rerere.mediagen.provider.MediaGenerationProviderSetting) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val manager: me.rerere.mediagen.provider.MediaGenerationManager = koinInject()
+    var name by remember { mutableStateOf("") }
+    var baseUrl by remember { mutableStateOf("https://api.openai.com/v1") }
+    var apiKey by remember { mutableStateOf("") }
+    var models by remember { mutableStateOf<List<me.rerere.mediagen.model.MediaGenerationModel>>(emptyList()) }
+    var fetching by remember { mutableStateOf(false) }
+    val toaster = LocalToaster.current
+
+    OutlinedTextField(
+        value = name,
+        onValueChange = { name = it },
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(stringResource(R.string.setting_media_page_provider_name)) },
+        singleLine = true,
+    )
+    OutlinedTextField(
+        value = baseUrl,
+        onValueChange = { baseUrl = it },
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(stringResource(R.string.setting_media_page_base_url)) },
+        singleLine = true,
+    )
+    OutlinedTextField(
+        value = apiKey,
+        onValueChange = { apiKey = it },
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(stringResource(R.string.setting_media_page_api_key)) },
+        singleLine = true,
+    )
+    OutlinedButton(
+        onClick = {
+            if (apiKey.isBlank()) {
+                toaster.show(context.getString(R.string.setting_media_page_fetch_models_no_key), type = ToastType.Warning)
+                return@OutlinedButton
+            }
+            val setting = me.rerere.mediagen.provider.MediaGenerationProviderSetting.OpenAI(
+                name = name.ifBlank { "Quick Provider" },
+                apiKey = apiKey.trim(),
+                baseUrl = baseUrl.trim().ifBlank { "https://api.openai.com/v1" },
+                models = models,
+            )
+            scope.launch {
+                fetching = true
+                try {
+                    manager.fetchModels(setting)
+                        .onSuccess { ids ->
+                            val fetched = ids.map { id ->
+                                me.rerere.mediagen.model.MediaGenerationModel(
+                                    modelId = id,
+                                    kind = if (id.contains("video") || id.contains("veo") || id.contains("seedance") || id.contains("wan") && !id.contains("image")) {
+                                        me.rerere.mediagen.model.MediaKind.VIDEO
+                                    } else {
+                                        me.rerere.mediagen.model.MediaKind.IMAGE
+                                    },
+                                )
+                            }
+                            models = fetched
+                            toaster.show(context.getString(R.string.setting_media_page_fetch_models_done, fetched.size), type = ToastType.Success)
+                        }
+                        .onFailure { e ->
+                            toaster.show(context.getString(R.string.setting_media_page_fetch_models_failed, e.message.orEmpty()), type = ToastType.Error)
+                        }
+                } finally {
+                    fetching = false
+                }
+            }
+        },
+        enabled = !fetching,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (fetching) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+        } else {
+            Text(stringResource(R.string.setting_media_page_fetch_models))
+        }
+    }
+    Button(
+        onClick = {
+            if (apiKey.isBlank()) {
+                toaster.show(context.getString(R.string.setting_media_page_fetch_models_no_key), type = ToastType.Warning)
+                return@Button
+            }
+            val finalModels = models.ifEmpty {
+                listOf(
+                    me.rerere.mediagen.model.MediaGenerationModel(
+                        modelId = "gpt-image-2",
+                        kind = me.rerere.mediagen.model.MediaKind.IMAGE,
+                    )
+                )
+            }
+            onSaved(
+                me.rerere.mediagen.provider.MediaGenerationProviderSetting.OpenAI(
+                    name = name.ifBlank { "Quick Provider" },
+                    apiKey = apiKey.trim(),
+                    baseUrl = baseUrl.trim().ifBlank { "https://api.openai.com/v1" },
+                    models = finalModels,
+                )
+            )
+            toaster.show(context.getString(R.string.setting_media_page_add_provider_saved), type = ToastType.Success)
+        },
+        enabled = apiKey.isNotBlank(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.setting_media_page_add_provider))
     }
 }
 

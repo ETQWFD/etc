@@ -24,10 +24,13 @@ class TermuxShellRunner : WorkspaceShellRunner {
         val home = File(linuxDir, "home").apply { mkdirs() }
         context.tempDir.mkdirs()
 
-        // Termux 官方通过 LD_PRELOAD=libtermux-exec.so 包装 exec，让子进程在 Android 限制下正常工作
-        val execSo = File(prefix, "lib/libtermux-exec.so")
+        // Termux 官方通过 LD_PRELOAD=libtermux-exec-ld-preload.so 包装 exec，让子进程在 Android 限制下正常工作
+        val execSo = listOf(
+            File(prefix, "lib/libtermux-exec-ld-preload.so"),
+            File(prefix, "lib/libtermux-exec.so"),
+        ).firstOrNull { it.isFile }
         val diagnostics = buildList {
-            if (!execSo.isFile) add("缺少 libtermux-exec.so")
+            if (execSo == null) add("缺少 libtermux-exec-ld-preload.so")
             if (!File(prefix, "lib").isDirectory) add("缺少 usr/lib 目录")
             if (!File(prefix, "etc").isDirectory) add("缺少 usr/etc 目录")
         }
@@ -57,7 +60,7 @@ class TermuxShellRunner : WorkspaceShellRunner {
                 environment()["PAGER"] = "cat"
                 // Android 原生二进制需要 ld library path 传入 linker
                 environment()["TERMUX_APP__LD_LIBRARY_PATH"] = "${prefix.absolutePath}/lib"
-                if (execSo.isFile) {
+                if (execSo != null) {
                     environment()["LD_PRELOAD"] = execSo.absolutePath
                 }
             }

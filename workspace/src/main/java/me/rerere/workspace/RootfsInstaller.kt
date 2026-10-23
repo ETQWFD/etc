@@ -71,16 +71,16 @@ class RootfsInstaller(
     }
 
     /**
-     * 官方源不可达或极慢时按顺序尝试镜像源（国内加速）。返回实际使用的 URL。
-     * 镜像源必须支持 Range，且与官方源内容一致（同一 bootstrap 包的转发）。
+     * 下载地址选择：优先国内加速镜像（快、稳定），全部镜像不可用时回退官方 GitHub。
+     * 镜像源必须支持 Range（206），HEAD 探测确认可达且带 Content-Length 才选中。
      */
     private fun resolveDownloadUrl(url: String): String {
         if (MIRROR_PREFIXES.isEmpty()) return url
         val candidates = buildList {
-            add(url)
             MIRROR_PREFIXES.forEach { prefix ->
                 if (!url.startsWith(prefix)) add(prefix + url)
             }
+            add(url)
         }
         var lastCode = -1
         for (candidate in candidates) {
@@ -94,16 +94,15 @@ class RootfsInstaller(
                 val length = probe.contentLengthLong
                 probe.disconnect()
                 lastCode = code
-                if (code in 200..299) {
-                    // 镜像转发时若拿不到大小，则放行（下载时再退化单连接）
-                    if (length > 0) return candidate
+                if (code in 200..299 && length > 0) {
+                    return candidate
                 }
             } catch (_: Exception) {
                 // 该镜像不可达，继续下一个
             }
         }
         // 全部探测失败：官方源探测也失败时给出真实错误
-        if (url == candidates.first() && lastCode !in 200..299 && lastCode > 0) {
+        if (url == candidates.last() && lastCode !in 200..299 && lastCode > 0) {
             throw IllegalStateException("Rootfs download failed: HTTP $lastCode")
         }
         return url
@@ -734,12 +733,11 @@ class RootfsInstaller(
         private const val MIN_CHUNK_SIZE = 8L * 1024 * 1024
         private const val PROBE_TIMEOUT_MS = 10_000
 
-        // 国内 GitHub 加速镜像，按顺序尝试（转发同一文件，支持 Range）
+        // 国内 GitHub 加速镜像，按顺序尝试（转发同一文件，支持 Range 206）
         private val MIRROR_PREFIXES = listOf(
             "https://ghproxy.net/",
             "https://gh-proxy.com/",
             "https://ghfast.top/",
-            "https://mirror.ghproxy.com/",
         )
     }
 }
