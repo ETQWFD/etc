@@ -146,6 +146,7 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         ProviderSetting.OpenAI::class -> ProviderSetting.OpenAI().baseUrl
         ProviderSetting.Google::class -> ProviderSetting.Google().baseUrl
         ProviderSetting.Claude::class -> ProviderSetting.Claude().baseUrl
+        ProviderSetting.Local::class -> ""
         else -> error("Unsupported provider type: $type")
     }
     val convertedBaseUrl = sourceBaseUrl.convertToTargetBaseUrl(targetDefaultBaseUrl)

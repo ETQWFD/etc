@@ -169,6 +169,7 @@ fun SettingLocalModelsPage() {
     var customLoading by remember { mutableStateOf(false) }
     var customRepoName by remember { mutableStateOf("") }
     var customError by remember { mutableStateOf<String?>(null) }
+    var refreshTick by remember { mutableStateOf(0) }
 
     fun fileOf(repoKey: String, path: String): File = File(modelsDir, File(path).name)
 
@@ -178,18 +179,38 @@ fun SettingLocalModelsPage() {
             val existing = settings.providers
                 .filterIsInstance<ProviderSetting.Local>()
                 .firstOrNull { it.modelPath == file.absolutePath }
-            val provider = existing ?: ProviderSetting.Local(
-                name = displayName,
-                modelPath = file.absolutePath,
-                models = listOf(
-                    Model(
-                        modelId = modelId,
-                        displayName = displayName,
-                        abilities = listOf(ModelAbility.TOOL),
+            val provider = if (existing != null) {
+                existing.copy(
+                    models = existing.models.map {
+                        it.copy(abilities = listOf(ModelAbility.TOOL))
+                    }.ifEmpty {
+                        listOf(
+                            Model(
+                                modelId = modelId,
+                                displayName = displayName,
+                                abilities = listOf(ModelAbility.TOOL),
+                            ),
+                        )
+                    },
+                )
+            } else {
+                ProviderSetting.Local(
+                    name = displayName,
+                    modelPath = file.absolutePath,
+                    models = listOf(
+                        Model(
+                            modelId = modelId,
+                            displayName = displayName,
+                            abilities = listOf(ModelAbility.TOOL),
+                        ),
                     ),
-                ),
-            )
-            val finalProviders = if (existing != null) settings.providers else settings.providers + provider
+                )
+            }
+            val finalProviders = if (existing != null) {
+                settings.providers.map { if (it === existing) provider else it }
+            } else {
+                settings.providers + provider
+            }
             val targetId = provider.models.first().id
             settingsStore.update { s ->
                 s.copy(
@@ -232,6 +253,7 @@ fun SettingLocalModelsPage() {
                     },
                 )
                 registerAndSelect(file, displayName, "local-${File(path).name}")
+                refreshTick++
                 Toast.makeText(context, R.string.local_models_downloaded, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
@@ -588,6 +610,8 @@ fun SettingLocalModelsPage() {
                 )
             }
 
+            // 依赖 refreshTick，下载/删除后自动刷新已下载列表
+            val _tick = refreshTick
             val localModels = modelsDir.listFiles().orEmpty()
                 .filter { it.isFile && it.name.endsWith(".gguf") && it.length() > 0 }
                 .sortedByDescending { it.length() }
@@ -648,6 +672,16 @@ fun SettingLocalModelsPage() {
                                 OutlinedButton(
                                     onClick = {
                                         file.delete()
+                                        scope.launch {
+                                            val s = settingsStore.settingsFlow.first()
+                                            val removed = s.providers.filterNot {
+                                                it is ProviderSetting.Local && it.modelPath == file.absolutePath
+                                            }
+                                            settingsStore.update { st ->
+                                                st.copy(providers = removed)
+                                            }
+                                        }
+                                        refreshTick++
                                         Toast.makeText(context, R.string.local_models_deleted, Toast.LENGTH_SHORT).show()
                                     },
                                     modifier = Modifier.weight(1f),

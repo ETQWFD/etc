@@ -17,6 +17,7 @@ import me.rerere.ai.ui.StreamChunk
 import me.rerere.ai.ui.UIMessage
 import me.rerere.ai.ui.UIMessagePart
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.uuid.Uuid
 
 private const val TAG = "LocalLlamaProvider"
@@ -28,6 +29,7 @@ private const val TAG = "LocalLlamaProvider"
  */
 class LocalLlamaProvider(private val context: Context) : Provider<ProviderSetting.Local> {
     private val handleHolder = AtomicLong(0L)
+    private val loadedPathHolder = AtomicReference("")
 
     override suspend fun listModels(providerSetting: ProviderSetting.Local): List<Model> =
         providerSetting.models
@@ -89,13 +91,19 @@ class LocalLlamaProvider(private val context: Context) : Provider<ProviderSettin
         params: TextGenerationParams,
         streamTo: ((String) -> Unit)?,
     ): String {
-        val handle = handleHolder.get()
-        if (handle == 0L) {
-            val path = setting.modelPath
-            if (path.isBlank()) throw IllegalStateException("本地模型路径为空，请先在本地模型页下载模型")
+        val path = setting.modelPath
+        if (path.isBlank()) throw IllegalStateException("本地模型路径为空，请先在本地模型页下载模型")
+        var handle = handleHolder.get()
+        // 换模型（或首次加载）时重建会话句柄；旧模型句柄先释放避免内存泄漏
+        if (handle == 0L || loadedPathHolder.get() != path) {
+            if (handle != 0L) {
+                LlamaNative.free(handle)
+                handleHolder.set(0L)
+            }
             val created = LlamaNative.create(path, setting.nCtx, setting.threads)
             if (created == 0L) throw IllegalStateException("模型加载失败：内存不足或模型文件损坏，请重启应用后重试")
             handleHolder.set(created)
+            loadedPathHolder.set(path)
         }
 
         val roles = mutableListOf<String>()
