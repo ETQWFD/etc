@@ -42,22 +42,27 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.AiBrain01
 import me.rerere.hugeicons.stroke.PaintBoard
 import me.rerere.rikkahub.R
+import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.ChunkedDownloader
 import me.rerere.rikkahub.utils.writeClipboardText
+import me.rerere.ai.provider.Model
+import me.rerere.ai.provider.ProviderSetting
 import okhttp3.OkHttpClient
+import org.koin.compose.koinInject
 import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
  * 本地模型下载管理：可直接下载本地聊天模型（GGUF）与本地绘图模型（ONNX），
- * 使用分块并行下载加速；下载完成后可复制模型路径供本地推理服务（如工作区终端中的 llama.cpp）加载。
+ * 使用分块并行下载加速；下载完成后自动注册为聊天模型并选中，可直接离线对话。
  */
 @Composable
 fun SettingLocalModelsPage() {
@@ -65,6 +70,7 @@ fun SettingLocalModelsPage() {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
     val layoutDirection = LocalLayoutDirection.current
+    val settingsStore: SettingsStore = koinInject()
 
     val modelsDir = remember {
         File(context.filesDir, "models").apply { mkdirs() }
@@ -89,6 +95,14 @@ fun SettingLocalModelsPage() {
                 fileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf",
                 sizeText = "约 1.0 GB",
                 url = "https://hf-mirror.com/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                kind = "聊天模型",
+            ),
+            LocalModelEntry(
+                id = "qwen-3b",
+                name = "Qwen2.5-3B-Instruct（高配设备）",
+                fileName = "qwen2.5-3b-instruct-q4_k_m.gguf",
+                sizeText = "约 2.0 GB",
+                url = "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
                 kind = "聊天模型",
             ),
             LocalModelEntry(
@@ -190,6 +204,45 @@ fun SettingLocalModelsPage() {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             if (downloaded) {
+                                if (entry.kind == "聊天模型") {
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                val file = targetFile(entry)
+                                                val settings = settingsStore.settingsFlow.first()
+                                                val localProvider = settings.providers
+                                                    .filterIsInstance<ProviderSetting.Local>()
+                                                    .firstOrNull { it.modelPath == file.absolutePath }
+                                                if (localProvider == null) {
+                                                    val provider = ProviderSetting.Local(
+                                                        name = entry.name,
+                                                        modelPath = file.absolutePath,
+                                                        models = listOf(
+                                                            Model(
+                                                                modelId = entry.id,
+                                                                displayName = entry.name,
+                                                            ),
+                                                        ),
+                                                    )
+                                                    settingsStore.update { s ->
+                                                        s.copy(
+                                                            providers = s.providers + provider,
+                                                            chatModelId = provider.models.first().id,
+                                                        )
+                                                    }
+                                                } else {
+                                                    settingsStore.update { s ->
+                                                        s.copy(chatModelId = localProvider.models.firstOrNull()?.id ?: s.chatModelId)
+                                                    }
+                                                }
+                                                Toast.makeText(context, R.string.local_models_selected, Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Text(stringResource(R.string.local_models_use))
+                                    }
+                                }
                                 OutlinedButton(
                                     onClick = {
                                         val f = targetFile(entry)
@@ -241,6 +294,35 @@ fun SettingLocalModelsPage() {
                                                         }
                                                     },
                                                 )
+                                                // 下载完成：自动注册为本地聊天模型并选中，可直接在聊天页使用
+                                                if (entry.kind == "聊天模型") {
+                                                    val file = targetFile(entry)
+                                                    val settings = settingsStore.settingsFlow.first()
+                                                    val existing = settings.providers
+                                                        .filterIsInstance<ProviderSetting.Local>()
+                                                        .firstOrNull { it.modelPath == file.absolutePath }
+                                                    val provider = existing ?: ProviderSetting.Local(
+                                                        name = entry.name,
+                                                        modelPath = file.absolutePath,
+                                                        models = listOf(
+                                                            Model(
+                                                                modelId = entry.id,
+                                                                displayName = entry.name,
+                                                            ),
+                                                        ),
+                                                    )
+                                                    val finalProviders = if (existing != null) {
+                                                        settings.providers
+                                                    } else {
+                                                        settings.providers + provider
+                                                    }
+                                                    settingsStore.update { s ->
+                                                        s.copy(
+                                                            providers = finalProviders,
+                                                            chatModelId = provider.models.first().id,
+                                                        )
+                                                    }
+                                                }
                                                 Toast.makeText(context, R.string.local_models_downloaded, Toast.LENGTH_SHORT).show()
                                             } catch (e: Exception) {
                                                 Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_LONG).show()

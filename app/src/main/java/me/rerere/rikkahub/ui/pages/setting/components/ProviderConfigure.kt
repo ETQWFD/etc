@@ -33,6 +33,7 @@ import me.rerere.ai.provider.ClaudePromptCacheTtl
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.DEFAULT_PROVIDERS
+import me.rerere.rikkahub.ui.components.ui.FormItem
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.View
 import me.rerere.hugeicons.stroke.ViewOff
@@ -75,7 +76,54 @@ fun ProviderConfigure(
             is ProviderSetting.OpenAI -> ProviderConfigureOpenAI(provider, onEdit)
             is ProviderSetting.Google -> ProviderConfigureGoogle(provider, onEdit)
             is ProviderSetting.Claude -> ProviderConfigureClaude(provider, onEdit)
+            is ProviderSetting.Local -> ProviderConfigureLocal(provider, onEdit)
         }
+    }
+}
+
+@Composable
+private fun ProviderConfigureLocal(
+    provider: ProviderSetting.Local,
+    onEdit: (ProviderSetting) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        FormItem(label = { Text(stringResource(R.string.local_provider_model_path)) }) {
+            OutlinedTextField(
+                value = provider.modelPath,
+                onValueChange = { onEdit(provider.copy(modelPath = it)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.local_provider_model_path_hint)) },
+            )
+        }
+        FormItem(label = { Text(stringResource(R.string.local_provider_nctx)) }) {
+            OutlinedTextField(
+                value = provider.nCtx.toString(),
+                onValueChange = { value ->
+                    value.toIntOrNull()?.let { onEdit(provider.copy(nCtx = it)) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+        }
+        FormItem(label = { Text(stringResource(R.string.local_provider_threads)) }) {
+            OutlinedTextField(
+                value = provider.threads.toString(),
+                onValueChange = { value ->
+                    value.toIntOrNull()?.let { onEdit(provider.copy(threads = it)) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+        }
+        Text(
+            text = stringResource(R.string.local_provider_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -86,11 +134,13 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
         is ProviderSetting.OpenAI -> this.apiKey
         is ProviderSetting.Google -> this.apiKey
         is ProviderSetting.Claude -> this.apiKey
+        is ProviderSetting.Local -> ""
     }
     val sourceBaseUrl = when (this) {
         is ProviderSetting.OpenAI -> this.baseUrl
         is ProviderSetting.Google -> this.baseUrl
         is ProviderSetting.Claude -> this.baseUrl
+        is ProviderSetting.Local -> ""
     }
     val targetDefaultBaseUrl = when (type) {
         ProviderSetting.OpenAI::class -> ProviderSetting.OpenAI().baseUrl
@@ -119,6 +169,12 @@ fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSettin
             description = this.description, shortDescription = this.shortDescription,
             apiKey = apiKey, baseUrl = convertedBaseUrl
         )
+        ProviderSetting.Local::class -> ProviderSetting.Local(
+            id = this.id, enabled = this.enabled, name = this.name, models = this.models,
+            balanceOption = this.balanceOption, customHeaders = this.customHeaders, builtIn = this.builtIn,
+            description = this.description, shortDescription = this.shortDescription,
+            modelPath = (this as? ProviderSetting.Local)?.modelPath ?: ""
+        )
         else -> error("Unsupported provider type: $type")
     }
 }
@@ -130,12 +186,14 @@ internal fun ProviderSetting.defaultBaseUrlForReset(): String {
             is ProviderSetting.OpenAI -> if (defaultProvider is ProviderSetting.OpenAI) return defaultProvider.baseUrl
             is ProviderSetting.Google -> if (defaultProvider is ProviderSetting.Google) return defaultProvider.baseUrl
             is ProviderSetting.Claude -> if (defaultProvider is ProviderSetting.Claude) return defaultProvider.baseUrl
+            is ProviderSetting.Local -> return modelPath
         }
     }
     return when (this) {
         is ProviderSetting.OpenAI -> ProviderSetting.OpenAI().baseUrl
         is ProviderSetting.Google -> ProviderSetting.Google().baseUrl
         is ProviderSetting.Claude -> ProviderSetting.Claude().baseUrl
+        is ProviderSetting.Local -> modelPath
     }
 }
 
@@ -145,6 +203,7 @@ internal fun ProviderSetting.resetBaseUrlToDefault(): ProviderSetting {
         is ProviderSetting.OpenAI -> this.copy(baseUrl = defaultBaseUrl)
         is ProviderSetting.Google -> this.copy(baseUrl = defaultBaseUrl)
         is ProviderSetting.Claude -> this.copy(baseUrl = defaultBaseUrl)
+        is ProviderSetting.Local -> this
     }
 }
 
@@ -153,6 +212,7 @@ internal fun ProviderSetting.isUsingDefaultBaseUrl(): Boolean {
         is ProviderSetting.OpenAI -> this.baseUrl
         is ProviderSetting.Google -> this.baseUrl
         is ProviderSetting.Claude -> this.baseUrl
+        is ProviderSetting.Local -> modelPath
     }
     return baseUrl == defaultBaseUrlForReset()
 }

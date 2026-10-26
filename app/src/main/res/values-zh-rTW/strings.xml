@@ -1621,8 +1621,15 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_path_copied">模型路徑已複制</string>
   <string name="local_models_delete">刪除</string>
   <string name="local_models_deleted">模型已刪除</string>
+  <string name="local_models_use">使用</string>
+  <string name="local_models_selected">本地模型已選中，可離線聊天</string>
+  <string name="local_provider_model_path">模型檔案路徑</string>
+  <string name="local_provider_model_path_hint">GGUF 檔案路徑（下載後自動填入）</string>
+  <string name="local_provider_nctx">上下文長度</string>
+  <string name="local_provider_threads">執行緒數</string>
+  <string name="local_provider_hint">本地 GGUF 模型完全離線運行。下載後會自動出現在聊天模型選擇器中。</string>
   <string name="local_models_usage_title">使用方法</string>
-  <string name="local_models_usage_desc">複制模型路徑後，在工作區終端啟動本地推理服務（如 llama-server -m &lt;路徑&gt;）即可本地聊天，或交給本地繪圖服務加載。</string>
+  <string name="local_models_usage_desc">下載完成後模型會自動註冊並選中，開啟任意對話即可離線直接對話；也可複製路徑交給本地繪圖服務載入。</string>
 
   <string name="setting_media_page_api_key">介面金鑰</string>
   <string name="setting_media_page_api_key_hint">貼上你的介面金鑰</string>

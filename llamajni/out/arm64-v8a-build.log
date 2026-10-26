@@ -1,0 +1,33 @@
+[  7%] Building C object llama/ggml/src/CMakeFiles/ggml-base.dir/ggml.c.o
+[  7%] Building C object llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-alloc.c.o
+[ 10%] Building CXX object llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o
+[ 14%] Building CXX object llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o
+[ 17%] Building CXX object llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-threading.cpp.o
+[ 21%] Building C object llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o
+[ 25%] Linking CXX shared library libggml-base.so
+[ 25%] Built target ggml-base
+[ 32%] Building C object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
+[ 32%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+[ 35%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-aarch64.cpp.o
+[ 39%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-hbm.cpp.o
+[ 42%] Building C object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-quants.c.o
+[ 46%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-traits.cpp.o
+[ 50%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/amx.cpp.o
+[ 53%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/mmq.cpp.o
+[ 57%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/llamafile/sgemm.cpp.o
+[ 60%] Linking CXX shared library libggml-cpu.so
+[ 60%] Built target ggml-cpu
+[ 64%] Building CXX object llama/ggml/src/CMakeFiles/ggml.dir/ggml-backend-reg.cpp.o
+[ 67%] Linking CXX shared library libggml.so
+[ 67%] Built target ggml
+[ 75%] Building CXX object llama/src/CMakeFiles/llama.dir/llama.cpp.o
+[ 75%] Building CXX object llama/src/CMakeFiles/llama.dir/llama-vocab.cpp.o
+[ 78%] Building CXX object llama/src/CMakeFiles/llama.dir/llama-grammar.cpp.o
+[ 82%] Building CXX object llama/src/CMakeFiles/llama.dir/llama-sampling.cpp.o
+[ 85%] Building CXX object llama/src/CMakeFiles/llama.dir/unicode.cpp.o
+[ 89%] Building CXX object llama/src/CMakeFiles/llama.dir/unicode-data.cpp.o
+[ 92%] Linking CXX shared library libllama.so
+[ 92%] Built target llama
+[ 96%] Building CXX object CMakeFiles/chat_jni.dir/me_rerere_ai_local_LlamaNative.cpp.o
+[100%] Linking CXX shared library libchat_jni.so
+[100%] Built target chat_jni

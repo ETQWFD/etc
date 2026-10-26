@@ -1,0 +1,56 @@
+Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
+Change Dir: /home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_957d5/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_957d5.dir/build.make CMakeFiles/cmTC_957d5.dir/build
+gmake[1]: Entering directory '/home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_957d5.dir/src.c.o
+/home/user/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=armv7-none-linux-androideabi26 --sysroot=/home/user/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -DCMAKE_HAVE_LIBC_PTHREAD  -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security   -fPIE -std=gnu11 -MD -MT CMakeFiles/cmTC_957d5.dir/src.c.o -MF CMakeFiles/cmTC_957d5.dir/src.c.o.d -o CMakeFiles/cmTC_957d5.dir/src.c.o -c /home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp/src.c
+/home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp/src.c:13:3: error: call to undeclared function 'pthread_cancel'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   13 |   pthread_cancel(thread);
+      |   ^
+/home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp/src.c:13:3: note: did you mean 'pthread_once'?
+/home/user/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/pthread.h:250:5: note: 'pthread_once' declared here
+  250 | int pthread_once(pthread_once_t* _Nonnull __once, void (* _Nonnull __init_routine)(void));
+      |     ^
+1 error generated.
+gmake[1]: *** [CMakeFiles/cmTC_957d5.dir/build.make:79: CMakeFiles/cmTC_957d5.dir/src.c.o] Error 1
+gmake[1]: Leaving directory '/home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp'
+gmake: *** [Makefile:127: cmTC_957d5/fast] Error 2
+
+
+Source file was:
+#include <pthread.h>
+
+static void* test_func(void* data)
+{
+  return data;
+}
+
+int main(void)
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, test_func, NULL);
+  pthread_detach(thread);
+  pthread_cancel(thread);
+  pthread_join(thread, NULL);
+  pthread_atfork(NULL, NULL, NULL);
+  pthread_exit(NULL);
+
+  return 0;
+}
+
+Performing C++ SOURCE FILE Test GGML_COMPILER_SUPPORTS_FP16_FORMAT_I3E failed with the following output:
+Change Dir: /home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_69668/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_69668.dir/build.make CMakeFiles/cmTC_69668.dir/build
+gmake[1]: Entering directory '/home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_69668.dir/src.cxx.o
+/home/user/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=armv7-none-linux-androideabi26 --sysroot=/home/user/android-sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/sysroot -DGGML_COMPILER_SUPPORTS_FP16_FORMAT_I3E  -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security    -fPIE   -mfp16-format=ieee -std=gnu++17 -MD -MT CMakeFiles/cmTC_69668.dir/src.cxx.o -MF CMakeFiles/cmTC_69668.dir/src.cxx.o.d -o CMakeFiles/cmTC_69668.dir/src.cxx.o -c /home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp/src.cxx
+clang++: error: unknown argument: '-mfp16-format=ieee'
+gmake[1]: *** [CMakeFiles/cmTC_69668.dir/build.make:79: CMakeFiles/cmTC_69668.dir/src.cxx.o] Error 1
+gmake[1]: Leaving directory '/home/user/Doubao/chats/38445121917663234/rikkahub/llamajni/out/armeabi-v7a/CMakeFiles/CMakeTmp'
+gmake: *** [Makefile:127: cmTC_69668/fast] Error 2
+
+
+Source file was:
+int main() { return 0; }

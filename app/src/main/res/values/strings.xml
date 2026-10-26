@@ -1621,8 +1621,15 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_path_copied">Model path copied</string>
   <string name="local_models_delete">Delete</string>
   <string name="local_models_deleted">Model deleted</string>
+  <string name="local_models_use">Use</string>
+  <string name="local_models_selected">Local model selected, ready for offline chat</string>
+  <string name="local_provider_model_path">Model file path</string>
+  <string name="local_provider_model_path_hint">GGUF file path (auto-filled after download)</string>
+  <string name="local_provider_nctx">Context length</string>
+  <string name="local_provider_threads">Threads</string>
+  <string name="local_provider_hint">Local GGUF model runs fully offline on this device. After downloading, it appears in the chat model picker automatically.</string>
   <string name="local_models_usage_title">How to use</string>
-  <string name="local_models_usage_desc">Copy the model path, then in the workspace terminal start a local inference service (e.g. llama-server -m &lt;path&gt;) to chat locally, or load it in your local drawing service.</string>
+  <string name="local_models_usage_desc">After downloading, the chat model is registered and selected automatically — open any conversation and chat offline directly. Copy the path if you want to load it in a local drawing service.</string>
 
   <string name="setting_media_page_api_key">API Key</string>
   <string name="setting_media_page_api_key_hint">Paste your API Key</string>

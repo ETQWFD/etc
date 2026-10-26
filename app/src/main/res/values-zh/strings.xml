@@ -1623,8 +1623,15 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="local_models_path_copied">模型路径已复制</string>
   <string name="local_models_delete">删除</string>
   <string name="local_models_deleted">模型已删除</string>
+  <string name="local_models_use">使用</string>
+  <string name="local_models_selected">本地模型已选中，可离线聊天</string>
+  <string name="local_provider_model_path">模型文件路径</string>
+  <string name="local_provider_model_path_hint">GGUF 文件路径（下载后自动填入）</string>
+  <string name="local_provider_nctx">上下文长度</string>
+  <string name="local_provider_threads">线程数</string>
+  <string name="local_provider_hint">本地 GGUF 模型完全离线运行。下载后会自动出现在聊天模型选择器中。</string>
   <string name="local_models_usage_title">使用方法</string>
-  <string name="local_models_usage_desc">复制模型路径后，在工作区终端启动本地推理服务（如 llama-server -m &lt;路径&gt;）即可本地聊天，或交给本地绘图服务加载。</string>
+  <string name="local_models_usage_desc">下载完成后模型会自动注册并选中，打开任意会话即可离线直接对话；也可复制路径交给本地绘图服务加载。</string>
 
   <string name="setting_media_page_api_key">接口密钥</string>
   <string name="setting_media_page_api_key_hint">粘贴你的接口密钥</string>
