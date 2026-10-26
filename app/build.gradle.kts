@@ -30,8 +30,8 @@ android {
         applicationId = "me.rerere.rikkahub"
         minSdk = 26
         targetSdk = 37
-        versionCode = 205
-        versionName = "2.11.0"
+        versionCode = 206
+        versionName = "2.12.0"
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
@@ -74,6 +74,7 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            proguardFiles("proguard-rules.pro")
             optimization {
                 enable = true
             }

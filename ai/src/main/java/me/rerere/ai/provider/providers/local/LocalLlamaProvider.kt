@@ -138,5 +138,6 @@ class LocalLlamaProvider(private val context: Context) : Provider<ProviderSettin
     }
 
     private fun buildToolSystemPrompt(tools: String): String =
-        "你可以调用以下工具：$tools。需要调用工具时，严格输出 JSON：{\"tool\":\"工具名\",\"args\":{...}}，否则直接回复文本。"
+        "你可以调用以下工具：$tools。仅当用户明确要求（如“搜索”“调用工具”“用MCP”）时才调用工具；" +
+            "需要调用时严格输出 JSON：{\"tool\":\"工具名\",\"args\":{...}}，否则直接回复文本，绝不主动调用。"
 }

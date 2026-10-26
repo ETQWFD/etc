@@ -62,6 +62,7 @@ import me.rerere.rikkahub.ui.theme.CustomColors
 import me.rerere.rikkahub.utils.ChunkedDownloader
 import me.rerere.rikkahub.utils.writeClipboardText
 import me.rerere.ai.provider.Model
+import me.rerere.ai.provider.ModelAbility
 import me.rerere.ai.provider.ProviderSetting
 import okhttp3.OkHttpClient
 import org.koin.compose.koinInject
@@ -180,11 +181,22 @@ fun SettingLocalModelsPage() {
             val provider = existing ?: ProviderSetting.Local(
                 name = displayName,
                 modelPath = file.absolutePath,
-                models = listOf(Model(modelId = modelId, displayName = displayName)),
+                models = listOf(
+                    Model(
+                        modelId = modelId,
+                        displayName = displayName,
+                        abilities = listOf(ModelAbility.TOOL),
+                    ),
+                ),
             )
             val finalProviders = if (existing != null) settings.providers else settings.providers + provider
+            val targetId = provider.models.first().id
             settingsStore.update { s ->
-                s.copy(providers = finalProviders, chatModelId = provider.models.first().id)
+                s.copy(
+                    providers = finalProviders,
+                    chatModelId = targetId,
+                    fastModelId = targetId,
+                )
             }
             Toast.makeText(context, R.string.local_models_selected, Toast.LENGTH_SHORT).show()
         }
