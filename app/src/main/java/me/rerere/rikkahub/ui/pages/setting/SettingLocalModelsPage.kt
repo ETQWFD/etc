@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.pages.setting
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -24,6 +27,7 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -42,8 +46,12 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.AiBrain01
 import me.rerere.hugeicons.stroke.PaintBoard
@@ -60,10 +68,81 @@ import org.koin.compose.koinInject
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/**
- * 本地模型下载管理：可直接下载本地聊天模型（GGUF）与本地绘图模型（ONNX），
- * 使用分块并行下载加速；下载完成后自动注册为聊天模型并选中，可直接离线对话。
- */
+private val json = Json { ignoreUnknownKeys = true }
+
+@Serializable
+private data class MsFileItem(
+    val Path: String = "",
+    val Size: Long = 0,
+    val Type: String = "blob",
+)
+
+@Serializable
+private data class MsFilesData(val Files: List<MsFileItem> = emptyList())
+
+@Serializable
+private data class MsFilesResp(val Code: Int = 0, val Data: MsFilesData = MsFilesData())
+
+private data class MsRepo(val namespace: String, val name: String, val display: String)
+
+private data class MsFileRow(val path: String, val size: Long)
+
+/** 魔塔（ModelScope）热门 GGUF 模型，全部已验证存在 */
+private val HOT_MS_REPOS = listOf(
+    MsRepo("Qwen", "Qwen2.5-0.5B-Instruct-GGUF", "Qwen2.5 0.5B · 32 位手机推荐"),
+    MsRepo("Qwen", "Qwen2.5-1.5B-Instruct-GGUF", "Qwen2.5 1.5B · 64 位设备"),
+    MsRepo("Qwen", "Qwen2.5-3B-Instruct-GGUF", "Qwen2.5 3B · 高配设备"),
+    MsRepo("Qwen", "Qwen2.5-7B-Instruct-GGUF", "Qwen2.5 7B · 旗舰设备"),
+    MsRepo("Qwen", "Qwen2-1.5B-Instruct-GGUF", "Qwen2 1.5B"),
+    MsRepo("Qwen", "Qwen2-7B-Instruct-GGUF", "Qwen2 7B"),
+    MsRepo("Qwen", "Qwen1.5-1.8B-Chat-GGUF", "Qwen1.5 1.8B 对话"),
+    MsRepo("Qwen", "Qwen2.5-Coder-1.5B-Instruct-GGUF", "Qwen2.5 Coder 1.5B 代码"),
+    MsRepo("Qwen", "Qwen2.5-Coder-7B-Instruct-GGUF", "Qwen2.5 Coder 7B 代码"),
+    MsRepo("Qwen", "Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B · 大内存设备"),
+)
+
+private fun MsRepo.key(): String = "$namespace/$name"
+private fun MsRepo.filesUrl(): String = "https://modelscope.cn/api/v1/models/$namespace/$name/repo/files?Recursive=true"
+private fun MsRepo.downloadUrl(path: String): String = "https://modelscope.cn/api/v1/models/$namespace/$name/repo?FilePath=$path"
+
+/** GGUF 量化格式优先级：越小越推荐 */
+private fun ggufPriority(path: String): Int = when {
+    path.contains("q4_k_m") -> 0
+    path.contains("q8_0") -> 1
+    path.contains("q5_k_m") || path.contains("q5_0") -> 2
+    path.contains("q4_0") || path.contains("q4_1") -> 3
+    path.contains("q3_k_m") -> 4
+    path.contains("q2_k") -> 5
+    else -> 9
+}
+
+private fun formatSize(size: Long): String {
+    if (size <= 0) return ""
+    val gb = size / 1024.0 / 1024.0 / 1024.0
+    val mb = size / 1024.0 / 1024.0
+    return if (gb >= 1.0) "%.1f GB".format(gb) else "%.0f MB".format(mb)
+}
+
+private fun Long.toSpeedString(): String {
+    val bps = this
+    if (bps <= 0) return "0 B/s"
+    val mbps = bps / 1024.0 / 1024.0
+    val kbps = bps / 1024.0
+    return if (mbps >= 1.0) "%.1f MB/s".format(mbps) else "%.0f KB/s".format(kbps)
+}
+
+private suspend fun fetchMsFiles(repo: MsRepo, client: OkHttpClient): List<MsFileRow> =
+    withContext(Dispatchers.IO) {
+        val body = client.newCall(
+            okhttp3.Request.Builder().url(repo.filesUrl()).get().build(),
+        ).execute().use { it.body?.string().orEmpty() }
+        val resp = runCatching { json.decodeFromString(MsFilesResp.serializer(), body) }.getOrNull()
+        resp?.Data?.Files.orEmpty()
+            .filter { it.Type == "blob" && it.Path.endsWith(".gguf") && !it.Path.contains("-of-") }
+            .map { MsFileRow(it.Path, it.Size) }
+            .sortedBy { ggufPriority(it.path) }
+    }
+
 @Composable
 fun SettingLocalModelsPage() {
     val context = LocalContext.current
@@ -71,6 +150,9 @@ fun SettingLocalModelsPage() {
     val scope = rememberCoroutineScope()
     val layoutDirection = LocalLayoutDirection.current
     val settingsStore: SettingsStore = koinInject()
+    val client = remember {
+        OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
+    }
 
     val modelsDir = remember {
         File(context.filesDir, "models").apply { mkdirs() }
@@ -78,48 +160,74 @@ fun SettingLocalModelsPage() {
     val progressMap = remember { mutableStateMapOf<String, Float>() }
     val speedMap = remember { mutableStateMapOf<String, String>() }
     val runningMap = remember { mutableStateMapOf<String, Boolean>() }
+    val filesMap = remember { mutableStateMapOf<String, List<MsFileRow>>() }
+    val expandedRepo = remember { mutableStateOf<String?>(null) }
+    val loadingFiles = remember { mutableStateOf<String?>(null) }
+    var customQuery by remember { mutableStateOf("Qwen/Qwen2.5-3B-Instruct-GGUF") }
+    var customFiles by remember { mutableStateOf<List<MsFileRow>?>(null) }
+    var customLoading by remember { mutableStateOf(false) }
+    var customRepoName by remember { mutableStateOf("") }
+    var customError by remember { mutableStateOf<String?>(null) }
 
-    val chatModels = remember {
-        listOf(
-            LocalModelEntry(
-                id = "qwen-0.5b",
-                name = "Qwen2.5-0.5B-Instruct（32 位手机推荐）",
-                fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-                sizeText = "约 400 MB",
-                url = "https://hf-mirror.com/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-                kind = "聊天模型",
-            ),
-            LocalModelEntry(
-                id = "qwen-1.5b",
-                name = "Qwen2.5-1.5B-Instruct（64 位设备）",
-                fileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-                sizeText = "约 1.0 GB",
-                url = "https://hf-mirror.com/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-                kind = "聊天模型",
-            ),
-            LocalModelEntry(
-                id = "qwen-3b",
-                name = "Qwen2.5-3B-Instruct（高配设备）",
-                fileName = "qwen2.5-3b-instruct-q4_k_m.gguf",
-                sizeText = "约 2.0 GB",
-                url = "https://hf-mirror.com/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
-                kind = "聊天模型",
-            ),
-            LocalModelEntry(
-                id = "sd-v1-4",
-                name = "Stable Diffusion v1.4（本地绘图 ONNX，需高配设备）",
-                fileName = "sd-v1-4-onnx.tar.gz",
-                sizeText = "约 3.1 GB",
-                url = "https://hf-mirror.com/bes-dev/stable-diffusion-v1-4-onnx/resolve/main/unet.tar.gz",
-                kind = "绘图模型",
-            ),
-        )
+    fun fileOf(repoKey: String, path: String): File = File(modelsDir, File(path).name)
+
+    fun registerAndSelect(file: File, displayName: String, modelId: String) {
+        scope.launch {
+            val settings = settingsStore.settingsFlow.first()
+            val existing = settings.providers
+                .filterIsInstance<ProviderSetting.Local>()
+                .firstOrNull { it.modelPath == file.absolutePath }
+            val provider = existing ?: ProviderSetting.Local(
+                name = displayName,
+                modelPath = file.absolutePath,
+                models = listOf(Model(modelId = modelId, displayName = displayName)),
+            )
+            val finalProviders = if (existing != null) settings.providers else settings.providers + provider
+            settingsStore.update { s ->
+                s.copy(providers = finalProviders, chatModelId = provider.models.first().id)
+            }
+            Toast.makeText(context, R.string.local_models_selected, Toast.LENGTH_SHORT).show()
+        }
     }
 
-    fun targetFile(entry: LocalModelEntry): File = File(modelsDir, entry.fileName)
-
-    fun isDownloaded(entry: LocalModelEntry): Boolean =
-        targetFile(entry).exists() && targetFile(entry).length() > 0
+    fun startDownload(repoKey: String, path: String, url: String, displayName: String) {
+        val key = "$repoKey|$path"
+        if (runningMap[key] == true) return
+        val file = fileOf(repoKey, path)
+        if (file.exists() && file.length() > 0) return
+        runningMap[key] = true
+        var lastBytes = 0L
+        var lastNanos = System.nanoTime()
+        scope.launch {
+            try {
+                ChunkedDownloader.download(
+                    client = client,
+                    url = url,
+                    target = file,
+                    userAgent = "Reai-LocalModel",
+                    onProgress = { done, total ->
+                        if (total > 0) {
+                            progressMap[key] = (done.toFloat() / total).coerceIn(0f, 1f)
+                            val now = System.nanoTime()
+                            val elapsedSec = (now - lastNanos) / 1_000_000_000.0
+                            if (elapsedSec >= 1.0) {
+                                val rate = ((done - lastBytes) / elapsedSec).toLong()
+                                lastBytes = done
+                                lastNanos = now
+                                speedMap[key] = rate.toSpeedString()
+                            }
+                        }
+                    },
+                )
+                registerAndSelect(file, displayName, "local-${File(path).name}")
+                Toast.makeText(context, R.string.local_models_downloaded, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                runningMap[key] = false
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -151,190 +259,157 @@ fun SettingLocalModelsPage() {
                 )
             }
 
-            items(chatModels, key = { it.id }) { entry ->
-                val progress = progressMap[entry.id] ?: 0f
-                val speed = speedMap[entry.id]
-                val running = runningMap[entry.id] == true
-                val downloaded = isDownloaded(entry)
-
+            item {
                 Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (entry.kind == "聊天模型") HugeIcons.AiBrain01 else HugeIcons.PaintBoard,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                        Text(
+                            text = stringResource(R.string.local_models_ms_market),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.local_models_ms_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        OutlinedTextField(
+                            value = customQuery,
+                            onValueChange = { customQuery = it },
+                            label = { Text(stringResource(R.string.local_models_custom_query)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Button(
+                            onClick = {
+                                val parts = customQuery.trim().trim('/').split('/')
+                                if (parts.size != 2) {
+                                    customError = context.getString(R.string.local_models_query_format)
+                                    return@Button
+                                }
+                                customError = null
+                                customLoading = true
+                                customFiles = null
+                                customRepoName = customQuery.trim().trim('/')
+                                scope.launch {
+                                    try {
+                                        val repo = MsRepo(parts[0], parts[1], customQuery.trim().trim('/'))
+                                        val files = fetchMsFiles(repo, client)
+                                        if (files.isEmpty()) {
+                                            customError = context.getString(R.string.local_models_no_gguf)
+                                        } else {
+                                            customFiles = files
+                                        }
+                                    } catch (e: Exception) {
+                                        customError = e.message
+                                    } finally {
+                                        customLoading = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            if (customLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text(stringResource(R.string.local_models_fetch_files))
+                        }
+                        if (customError != null) {
+                            Text(
+                                text = customError ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
                             )
-                            Spacer(modifier = Modifier.height(0.dp))
-                            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                        }
+                    }
+                }
+            }
+
+            if (customFiles != null) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = entry.name,
+                                    text = customRepoName,
                                     style = MaterialTheme.typography.titleSmall,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
                                 )
                                 Text(
-                                    text = "${entry.kind} · ${entry.sizeText}",
+                                    text = stringResource(R.string.local_models_choose_quant),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                        }
-
-                        if (running) {
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Text(
-                                text = if (speed != null) {
-                                    stringResource(R.string.local_models_downloading_speed, (progress * 100).toInt(), speed)
-                                } else {
-                                    stringResource(R.string.local_models_downloading, (progress * 100).toInt())
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            if (downloaded) {
-                                if (entry.kind == "聊天模型") {
-                                    Button(
-                                        onClick = {
-                                            scope.launch {
-                                                val file = targetFile(entry)
-                                                val settings = settingsStore.settingsFlow.first()
-                                                val localProvider = settings.providers
-                                                    .filterIsInstance<ProviderSetting.Local>()
-                                                    .firstOrNull { it.modelPath == file.absolutePath }
-                                                if (localProvider == null) {
-                                                    val provider = ProviderSetting.Local(
-                                                        name = entry.name,
-                                                        modelPath = file.absolutePath,
-                                                        models = listOf(
-                                                            Model(
-                                                                modelId = entry.id,
-                                                                displayName = entry.name,
-                                                            ),
-                                                        ),
+                            customFiles.orEmpty().forEach { row ->
+                                val key = "$customRepoName|${row.path}"
+                                val progress = progressMap[key] ?: 0f
+                                val speed = speedMap[key]
+                                val running = runningMap[key] == true
+                                val file = fileOf(customRepoName, row.path)
+                                val downloaded = file.exists() && file.length() > 0
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = row.path,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            text = formatSize(row.size),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        when {
+                                            downloaded -> Text(
+                                                text = stringResource(R.string.local_models_done),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            running -> Text(
+                                                text = stringResource(R.string.local_models_downloading, (progress * 100).toInt()),
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                            else -> OutlinedButton(
+                                                onClick = {
+                                                    startDownload(
+                                                        repoKey = customRepoName,
+                                                        path = row.path,
+                                                        url = "https://modelscope.cn/api/v1/models/$customRepoName/repo?FilePath=${row.path}",
+                                                        displayName = "${customRepoName.split('/').last()} · ${row.path}",
                                                     )
-                                                    settingsStore.update { s ->
-                                                        s.copy(
-                                                            providers = s.providers + provider,
-                                                            chatModelId = provider.models.first().id,
-                                                        )
-                                                    }
-                                                } else {
-                                                    settingsStore.update { s ->
-                                                        s.copy(chatModelId = localProvider.models.firstOrNull()?.id ?: s.chatModelId)
-                                                    }
-                                                }
-                                                Toast.makeText(context, R.string.local_models_selected, Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    ) {
-                                        Text(stringResource(R.string.local_models_use))
-                                    }
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        val f = targetFile(entry)
-                                        context.writeClipboardText(f.absolutePath)
-                                        Toast.makeText(context, R.string.local_models_path_copied, Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(stringResource(R.string.local_models_copy_path))
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        targetFile(entry).delete()
-                                        Toast.makeText(context, R.string.local_models_deleted, Toast.LENGTH_SHORT).show()
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(stringResource(R.string.local_models_delete))
-                                }
-                            } else {
-                                Button(
-                                    onClick = {
-                                        val client = OkHttpClient.Builder()
-                                            .connectTimeout(30, TimeUnit.SECONDS)
-                                            .readTimeout(60, TimeUnit.SECONDS)
-                                            .build()
-                                        scope.launch {
-                                            runningMap[entry.id] = true
-                                            progressMap[entry.id] = 0f
-                                            var lastBytes = 0L
-                                            var lastNanos = System.nanoTime()
-                                            try {
-                                                ChunkedDownloader.download(
-                                                    client = client,
-                                                    url = entry.url,
-                                                    target = targetFile(entry),
-                                                    userAgent = "Reai-LocalModel",
-                                                    onProgress = { done, total ->
-                                                        if (total > 0) {
-                                                            progressMap[entry.id] = (done.toFloat() / total).coerceIn(0f, 1f)
-                                                            val now = System.nanoTime()
-                                                            val elapsedSec = (now - lastNanos) / 1_000_000_000.0
-                                                            if (elapsedSec >= 1.0) {
-                                                                val rate = ((done - lastBytes) / elapsedSec).toLong()
-                                                                lastBytes = done
-                                                                lastNanos = now
-                                                                speedMap[entry.id] = rate.toSpeedString()
-                                                            }
-                                                        }
-                                                    },
-                                                )
-                                                // 下载完成：自动注册为本地聊天模型并选中，可直接在聊天页使用
-                                                if (entry.kind == "聊天模型") {
-                                                    val file = targetFile(entry)
-                                                    val settings = settingsStore.settingsFlow.first()
-                                                    val existing = settings.providers
-                                                        .filterIsInstance<ProviderSetting.Local>()
-                                                        .firstOrNull { it.modelPath == file.absolutePath }
-                                                    val provider = existing ?: ProviderSetting.Local(
-                                                        name = entry.name,
-                                                        modelPath = file.absolutePath,
-                                                        models = listOf(
-                                                            Model(
-                                                                modelId = entry.id,
-                                                                displayName = entry.name,
-                                                            ),
-                                                        ),
-                                                    )
-                                                    val finalProviders = if (existing != null) {
-                                                        settings.providers
-                                                    } else {
-                                                        settings.providers + provider
-                                                    }
-                                                    settingsStore.update { s ->
-                                                        s.copy(
-                                                            providers = finalProviders,
-                                                            chatModelId = provider.models.first().id,
-                                                        )
-                                                    }
-                                                }
-                                                Toast.makeText(context, R.string.local_models_downloaded, Toast.LENGTH_SHORT).show()
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
-                                            } finally {
-                                                runningMap[entry.id] = false
+                                                },
+                                                modifier = Modifier.height(32.dp),
+                                            ) {
+                                                Text(stringResource(R.string.local_models_download), style = MaterialTheme.typography.labelSmall)
                                             }
                                         }
-                                    },
-                                    enabled = !running,
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(stringResource(R.string.local_models_download))
+                                    }
+                                    if (running) {
+                                        LinearProgressIndicator(
+                                            progress = { progress },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        Text(
+                                            text = if (speed != null) {
+                                                stringResource(R.string.local_models_downloading_speed, (progress * 100).toInt(), speed)
+                                            } else {
+                                                stringResource(R.string.local_models_downloading, (progress * 100).toInt())
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -343,7 +418,238 @@ fun SettingLocalModelsPage() {
             }
 
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.local_models_hot),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+
+            items(HOT_MS_REPOS, key = { it.key() }) { repo ->
+                val repoKey = repo.key()
+                val files = filesMap[repoKey].orEmpty()
+                val expanded = expandedRepo.value == repoKey
+                val loading = loadingFiles.value == repoKey
+
+                Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (expanded) {
+                                    expandedRepo.value = null
+                                } else {
+                                    expandedRepo.value = repoKey
+                                    if (files.isEmpty() && !loading) {
+                                        loadingFiles.value = repoKey
+                                        scope.launch {
+                                            try {
+                                                filesMap[repoKey] = fetchMsFiles(repo, client)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            } finally {
+                                                loadingFiles.value = null
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = HugeIcons.AiBrain01,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text(
+                                    text = repo.key(),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = repo.display,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Icon(
+                                imageVector = HugeIcons.AiBrain01,
+                                contentDescription = null,
+                            )
+                        }
+
+                        if (expanded) {
+                            if (loading) {
+                                Row(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(stringResource(R.string.local_models_loading_files), style = MaterialTheme.typography.bodySmall)
+                                }
+                            } else if (files.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.local_models_no_gguf),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                )
+                            } else {
+                                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                                    files.forEach { row ->
+                                        val key = "$repoKey|${row.path}"
+                                        val progress = progressMap[key] ?: 0f
+                                        val speed = speedMap[key]
+                                        val running = runningMap[key] == true
+                                        val file = fileOf(repoKey, row.path)
+                                        val downloaded = file.exists() && file.length() > 0
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = row.path,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    modifier = Modifier.weight(1f),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                Text(
+                                                    text = formatSize(row.size),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                when {
+                                                    downloaded -> Text(
+                                                        text = stringResource(R.string.local_models_done),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                    running -> Text(
+                                                        text = stringResource(R.string.local_models_downloading, (progress * 100).toInt()),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                    )
+                                                    else -> OutlinedButton(
+                                                        onClick = {
+                                                            startDownload(
+                                                                repoKey = repoKey,
+                                                                path = row.path,
+                                                                url = repo.downloadUrl(row.path),
+                                                                displayName = "${repo.name} · ${row.path}",
+                                                            )
+                                                        },
+                                                        modifier = Modifier.height(32.dp),
+                                                    ) {
+                                                        Text(stringResource(R.string.local_models_download), style = MaterialTheme.typography.labelSmall)
+                                                    }
+                                                }
+                                            }
+                                            if (running) {
+                                                LinearProgressIndicator(
+                                                    progress = { progress },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                )
+                                                Text(
+                                                    text = if (speed != null) {
+                                                        stringResource(R.string.local_models_downloading_speed, (progress * 100).toInt(), speed)
+                                                    } else {
+                                                        stringResource(R.string.local_models_downloading, (progress * 100).toInt())
+                                                    },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    text = stringResource(R.string.local_models_downloaded_list),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+
+            val localModels = modelsDir.listFiles().orEmpty()
+                .filter { it.isFile && it.name.endsWith(".gguf") && it.length() > 0 }
+                .sortedByDescending { it.length() }
+            if (localModels.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.local_models_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                items(localModels, key = { it.absolutePath }) { file ->
+                    Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = HugeIcons.AiBrain01,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                                Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                                    Text(
+                                        text = file.name,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = formatSize(file.length()),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Button(
+                                    onClick = { registerAndSelect(file, file.name, "local-${file.name}") },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(R.string.local_models_use))
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        context.writeClipboardText(file.absolutePath)
+                                        Toast.makeText(context, R.string.local_models_path_copied, Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(R.string.local_models_copy_path))
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        file.delete()
+                                        Toast.makeText(context, R.string.local_models_deleted, Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(R.string.local_models_delete))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -363,19 +669,4 @@ fun SettingLocalModelsPage() {
             }
         }
     }
-}
-
-data class LocalModelEntry(
-    val id: String,
-    val name: String,
-    val fileName: String,
-    val sizeText: String,
-    val url: String,
-    val kind: String,
-)
-
-private fun Long.toSpeedString(): String = when {
-    this >= 1024L * 1024L -> "%.1f MB/s".format(this / (1024.0 * 1024.0))
-    this >= 1024L -> "%.0f KB/s".format(this / 1024.0)
-    else -> "$this B/s"
 }

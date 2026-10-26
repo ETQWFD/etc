@@ -1630,6 +1630,18 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_provider_hint">本地 GGUF 模型完全離線運行。下載後會自動出現在聊天模型選擇器中。</string>
   <string name="local_models_usage_title">使用方法</string>
   <string name="local_models_usage_desc">下載完成後模型會自動註冊並選中，開啟任意對話即可離線直接對話；也可複製路徑交給本地繪圖服務載入。</string>
+  <string name="local_models_ms_market">魔塔（ModelScope）模型市場</string>
+  <string name="local_models_ms_hint">全部模型來自魔塔（ModelScope），下載完成後自動註冊並選中，可直接離線聊天。</string>
+  <string name="local_models_custom_query">自訂倉庫（組織/模型名，如 Qwen/Qwen2.5-3B-Instruct-GGUF）</string>
+  <string name="local_models_fetch_files">取得檔案清單</string>
+  <string name="local_models_query_format">格式應為 組織/模型名</string>
+  <string name="local_models_no_gguf">該倉庫中沒有可下載的 GGUF 檔案</string>
+  <string name="local_models_choose_quant">在下方選擇量化版本</string>
+  <string name="local_models_done">已完成</string>
+  <string name="local_models_hot">熱門 GGUF 模型</string>
+  <string name="local_models_loading_files">正在取得檔案清單…</string>
+  <string name="local_models_downloaded_list">已下載模型</string>
+  <string name="local_models_empty">還沒有下載任何 GGUF 模型，請從上方市場下載一個。</string>
 
   <string name="setting_media_page_api_key">介面金鑰</string>
   <string name="setting_media_page_api_key_hint">貼上你的介面金鑰</string>

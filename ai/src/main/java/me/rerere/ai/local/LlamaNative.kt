@@ -6,6 +6,11 @@ package me.rerere.ai.local
  */
 object LlamaNative {
     init {
+        // 按依赖顺序加载：ggml → llama → chat_jni
+        System.loadLibrary("ggml")
+        System.loadLibrary("ggml-base")
+        System.loadLibrary("ggml-cpu")
+        System.loadLibrary("llama")
         System.loadLibrary("chat_jni")
     }
 

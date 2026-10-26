@@ -1632,6 +1632,18 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="local_provider_hint">本地 GGUF 模型完全离线运行。下载后会自动出现在聊天模型选择器中。</string>
   <string name="local_models_usage_title">使用方法</string>
   <string name="local_models_usage_desc">下载完成后模型会自动注册并选中，打开任意会话即可离线直接对话；也可复制路径交给本地绘图服务加载。</string>
+  <string name="local_models_ms_market">魔塔（ModelScope）模型市场</string>
+  <string name="local_models_ms_hint">全部模型来自魔塔（ModelScope），下载完成后自动注册并选中，可直接离线聊天。</string>
+  <string name="local_models_custom_query">自定义仓库（组织/模型名，如 Qwen/Qwen2.5-3B-Instruct-GGUF）</string>
+  <string name="local_models_fetch_files">获取文件列表</string>
+  <string name="local_models_query_format">格式应为 组织/模型名</string>
+  <string name="local_models_no_gguf">该仓库中没有可下载的 GGUF 文件</string>
+  <string name="local_models_choose_quant">在下方选择量化版本</string>
+  <string name="local_models_done">已完成</string>
+  <string name="local_models_hot">热门 GGUF 模型</string>
+  <string name="local_models_loading_files">正在获取文件列表…</string>
+  <string name="local_models_downloaded_list">已下载模型</string>
+  <string name="local_models_empty">还没有下载任何 GGUF 模型，请从上方市场下载一个。</string>
 
   <string name="setting_media_page_api_key">接口密钥</string>
   <string name="setting_media_page_api_key_hint">粘贴你的接口密钥</string>

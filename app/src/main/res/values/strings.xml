@@ -1630,6 +1630,18 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_provider_hint">Local GGUF model runs fully offline on this device. After downloading, it appears in the chat model picker automatically.</string>
   <string name="local_models_usage_title">How to use</string>
   <string name="local_models_usage_desc">After downloading, the chat model is registered and selected automatically — open any conversation and chat offline directly. Copy the path if you want to load it in a local drawing service.</string>
+  <string name="local_models_ms_market">ModelScope (魔塔) Model Market</string>
+  <string name="local_models_ms_hint">All models come from ModelScope. After downloading, they are registered and selected automatically for offline chat.</string>
+  <string name="local_models_custom_query">Custom repo (Org/ModelName, e.g. Qwen/Qwen2.5-3B-Instruct-GGUF)</string>
+  <string name="local_models_fetch_files">Fetch files</string>
+  <string name="local_models_query_format">Format should be Org/ModelName</string>
+  <string name="local_models_no_gguf">No downloadable GGUF files found in this repo</string>
+  <string name="local_models_choose_quant">Choose a quantized file below</string>
+  <string name="local_models_done">Done</string>
+  <string name="local_models_hot">Popular GGUF models</string>
+  <string name="local_models_loading_files">Loading file list…</string>
+  <string name="local_models_downloaded_list">Downloaded models</string>
+  <string name="local_models_empty">No GGUF models downloaded yet. Download one from the market above.</string>
 
   <string name="setting_media_page_api_key">API Key</string>
   <string name="setting_media_page_api_key_hint">Paste your API Key</string>
