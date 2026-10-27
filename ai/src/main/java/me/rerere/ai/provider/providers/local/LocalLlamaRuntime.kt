@@ -28,7 +28,19 @@ object LocalLlamaRuntime {
             }
             val created = LlamaNative.create(modelPath, nCtx, threads)
             if (created == 0L) {
-                throw IllegalStateException("模型加载失败：内存不足或模型文件损坏，请重启应用后重试")
+                throw IllegalStateException("模型加载失败，请检查文件后重试")
+            }
+            if (created < 0L) {
+                // -1 文件损坏 / -2 加载失败：损坏文件无保留价值，自动清除以便重新下载
+                if (created == -1L || created == -2L) {
+                    runCatching {
+                        val f = java.io.File(modelPath)
+                        if (f.exists()) f.delete()
+                    }
+                    throw IllegalStateException("模型文件损坏，已自动清除，请重新下载该模型")
+                }
+                // -3 内存不足
+                throw IllegalStateException("内存不足，请使用更小的模型或关闭其它应用后重试")
             }
             handle = created
             path = modelPath

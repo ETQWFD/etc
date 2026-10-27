@@ -42,25 +42,40 @@ Java_me_rerere_ai_local_LlamaNative_create(
     if ( modelPath.empty() ) return 0;
     llama_backend_init();
 
+    // GGUF 魔数校验：前 4 字节必须为 "GGUF"，否则文件损坏
+    {
+        FILE * f = fopen( modelPath.c_str(), "rb" );
+        if ( f ) {
+            char magic[4] = { 0 };
+            if ( fread( magic, 1, 4, f ) != 4 || memcmp( magic, "GGUF", 4 ) != 0 ) {
+                fclose( f );
+                return -1; // 文件损坏
+            }
+            fclose( f );
+        } else {
+            return -1;
+        }
+    }
+
     llama_model_params mparams = llama_model_default_params();
     mparams.n_gpu_layers = 0;
     mparams.use_mmap = true;
     mparams.use_mlock = false;
 
     llama_model * model = llama_load_model_from_file( modelPath.c_str(), mparams );
-    if ( !model ) return 0;
+    if ( !model ) return -2; // 加载失败（文件损坏/格式错误）
 
     llama_context_params cparams = llama_context_default_params();
     cparams.n_ctx = static_cast<uint32_t>( nCtx > 0 ? nCtx : 2048 );
-    cparams.n_batch = 512;
-    cparams.n_ubatch = 512;
-    cparams.n_threads = threads > 0 ? threads : 4;
-    cparams.n_threads_batch = threads > 0 ? threads : 4;
+    cparams.n_batch = 256;
+    cparams.n_ubatch = 256;
+    cparams.n_threads = threads > 0 ? threads : 2;
+    cparams.n_threads_batch = threads > 0 ? threads : 2;
 
     llama_context * ctx = llama_new_context_with_model( model, cparams );
     if ( !ctx ) {
         llama_free_model( model );
-        return 0;
+        return -3; // 上下文创建失败（内存不足）
     }
 
     llama_sampler_chain_params sparams = llama_sampler_chain_default_params();
@@ -159,6 +174,7 @@ Java_me_rerere_ai_local_LlamaNative_stream(
         batch.seq_id[i][0] = 0;
         batch.n_tokens++;
     }
+    batch.logits[batch.n_tokens - 1] = 1;  // 必须标记最后 token 需要 logits，否则采样无数据
     if ( llama_decode( lh->ctx, batch ) != 0 ) {
         llama_batch_free( batch );
         return env->NewStringUTF( "" );
@@ -192,6 +208,7 @@ Java_me_rerere_ai_local_LlamaNative_stream(
         sb.pos[0] = (llama_pos) nOut;      // 续写位置 = 输入长度 + 已生成数
         sb.n_seq_id[0] = 1;
         sb.seq_id[0][0] = 0;
+        sb.logits[0] = 1;                  // 必须标记需要 logits
         sb.n_tokens = 1;
         int rc = llama_decode( lh->ctx, sb );
         llama_batch_free( sb );

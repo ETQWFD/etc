@@ -263,8 +263,8 @@ sealed class ProviderSetting {
         @Transient override val description: @Composable (() -> Unit) = {},
         @Transient override val shortDescription: @Composable (() -> Unit) = {},
         var modelPath: String = "",
-        var nCtx: Int = 2048,
-        var threads: Int = 4,
+        var nCtx: Int = 1024,
+        var threads: Int = 2,
     ) : ProviderSetting() {
         override fun addModel(model: Model): ProviderSetting {
             return copy(models = models + model)

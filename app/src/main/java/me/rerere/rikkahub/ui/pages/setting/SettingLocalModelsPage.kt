@@ -290,14 +290,22 @@ fun SettingLocalModelsPage() {
                             val childUri = DocumentsContract.buildDocumentUriUsingTree(uri, docId)
                             if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
                                 scan(childUri, depth + 1)
-                            } else if (name.endsWith(".gguf", ignoreCase = true)) {
+                            } else if (
+                                name.endsWith(".gguf", ignoreCase = true) ||
+                                name.endsWith(".mnn", ignoreCase = true) ||
+                                name.endsWith(".safetensors", ignoreCase = true) ||
+                                name.endsWith(".bin", ignoreCase = true)
+                            ) {
+                                val isGguf = name.endsWith(".gguf", ignoreCase = true)
                                 val target = File(modelsDir, name)
                                 context.contentResolver.openInputStream(childUri)?.use { input ->
                                     target.outputStream().use { out -> input.copyTo(out) }
                                 }
                                 if (target.exists() && target.length() > 0) {
-                                    count++
-                                    if (firstFile == null) firstFile = target
+                                    if (isGguf) {
+                                        count++
+                                        if (firstFile == null) firstFile = target
+                                    }
                                 }
                             }
                         }
@@ -336,6 +344,18 @@ fun SettingLocalModelsPage() {
         requestStoragePermission.launch(perm)
     }
 
+    /** 校验 GGUF 魔数：前 4 字节必须为 "GGUF"，否则视为损坏 */
+    fun isGgufValid(f: File): Boolean = try {
+        java.io.RandomAccessFile(f, "r").use { raf ->
+            val magic = ByteArray(4)
+            raf.readFully(magic)
+            magic[0] == 'G'.code.toByte() && magic[1] == 'G'.code.toByte() &&
+                magic[2] == 'U'.code.toByte() && magic[3] == 'F'.code.toByte()
+        }
+    } catch (e: Exception) {
+        false
+    }
+
     fun startDownload(repoKey: String, path: String, url: String, displayName: String) {
         val key = "$repoKey|$path"
         if (runningMap[key] == true) return
@@ -344,34 +364,52 @@ fun SettingLocalModelsPage() {
         val chunksDir = File(file.parentFile, "${file.name}.chunks")
         val complete = file.exists() && file.length() > 0 &&
             (!chunksDir.exists() || chunksDir.listFiles()?.isEmpty() == true)
-        if (complete) return
+        if (complete && isGgufValid(file)) return
         me.rerere.rikkahub.utils.AppLogger.i("Download", "开始下载: $displayName ($url)")
         runningMap[key] = true
         var lastBytes = 0L
         var lastNanos = System.nanoTime()
+        var autoRetry = 0
         scope.launch {
             try {
-                ChunkedDownloader.download(
-                    client = client,
-                    url = url,
-                    target = file,
-                    userAgent = "Reai-LocalModel",
-                    // 魔塔直链票据按请求签发，用单连接 + Range 断点续传最稳
-                    chunks = 1,
-                    onProgress = { done, total ->
-                        if (total > 0) {
-                            progressMap[key] = (done.toFloat() / total).coerceIn(0f, 1f)
-                            val now = System.nanoTime()
-                            val elapsedSec = (now - lastNanos) / 1_000_000_000.0
-                            if (elapsedSec >= 1.0) {
-                                val rate = ((done - lastBytes) / elapsedSec).toLong()
-                                lastBytes = done
-                                lastNanos = now
-                                speedMap[key] = rate.toSpeedString()
-                            }
+                while (true) {
+                    try {
+                        ChunkedDownloader.download(
+                            client = client,
+                            url = url,
+                            target = file,
+                            userAgent = "Reai-LocalModel",
+                            // 魔塔 CDN 票据支持并发 Range（实测 206），4 线程加速
+                            chunks = 4,
+                            onProgress = { done, total ->
+                                if (total > 0) {
+                                    progressMap[key] = (done.toFloat() / total).coerceIn(0f, 1f)
+                                    val now = System.nanoTime()
+                                    val elapsedSec = (now - lastNanos) / 1_000_000_000.0
+                                    if (elapsedSec >= 1.0) {
+                                        val rate = ((done - lastBytes) / elapsedSec).toLong()
+                                        lastBytes = done
+                                        lastNanos = now
+                                        speedMap[key] = rate.toSpeedString()
+                                    }
+                                }
+                            },
+                        )
+                        // 下载完成自动校验：损坏则删除并自动重下一次（最多 2 次）
+                        if (!isGgufValid(file)) {
+                            file.delete()
+                            chunksDir.deleteRecursively()
+                            autoRetry++
+                            me.rerere.rikkahub.utils.AppLogger.w("Download", "模型损坏，自动重下第 $autoRetry 次: $displayName")
+                            if (autoRetry > 2) throw IllegalStateException("模型文件损坏，自动重下 2 次仍失败")
+                            continue
                         }
-                    },
-                )
+                        break
+                    } catch (e: java.io.IOException) {
+                        // 网络中断：保留断点，下次继续
+                        throw e
+                    }
+                }
                 registerAndSelect(file, displayName, "local-${File(path).name}")
                 refreshTick++
                 Toast.makeText(context, R.string.local_models_downloaded, Toast.LENGTH_SHORT).show()

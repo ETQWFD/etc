@@ -19,8 +19,8 @@
 [ 62%] Building CXX object llama/ggml/src/CMakeFiles/ggml.dir/ggml-backend-reg.cpp.o
 [ 66%] Linking CXX shared library libggml.so
 [ 66%] Built target ggml
-[ 74%] Building CXX object llama/src/CMakeFiles/llama.dir/llama.cpp.o
 [ 74%] Building CXX object llama/src/CMakeFiles/llama.dir/llama-vocab.cpp.o
+[ 74%] Building CXX object llama/src/CMakeFiles/llama.dir/llama.cpp.o
 [ 77%] Building CXX object llama/src/CMakeFiles/llama.dir/llama-grammar.cpp.o
 [ 81%] Building CXX object llama/src/CMakeFiles/llama.dir/llama-sampling.cpp.o
 [ 85%] Building CXX object llama/src/CMakeFiles/llama.dir/unicode.cpp.o
