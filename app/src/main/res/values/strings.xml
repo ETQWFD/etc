@@ -1662,4 +1662,5 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="model_type_image">Image model</string>
   <string name="local_models_import">Import</string>
   <string name="local_models_imported">Model imported and selected</string>
+  <string name="local_models_imported_count">%1$d models imported, first one selected</string>
 </resources>

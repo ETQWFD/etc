@@ -6,8 +6,8 @@
 [ 21%] Building C object llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o
 [ 25%] Linking CXX shared library libggml-base.so
 [ 25%] Built target ggml-base
-[ 32%] Building C object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
 [ 32%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+[ 32%] Building C object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
 [ 35%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-aarch64.cpp.o
 [ 39%] Building CXX object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-hbm.cpp.o
 [ 42%] Building C object llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu-quants.c.o

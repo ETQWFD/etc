@@ -32,13 +32,17 @@ object ChunkedDownloader {
         userAgent: String,
     ): File = withContext(Dispatchers.IO) {
         val total = probeSize(client, url, userAgent)
-        val tmpDir = File(target.parentFile, "${target.name}.chunks").apply { mkdirs() }
-        val partFiles = (0 until chunks).map { File(tmpDir, "$it$CHUNK_SUFFIX") }
-
+        // 目标已完整：幂等返回（中断重下时直接跳过）
+        if (total > 0 && target.length() >= total) {
+            onProgress(total, total)
+            return@withContext target
+        }
         if (total <= 0 || total < MIN_CHUNK_SIZE) {
-            // 服务器不支持 Range 或文件太小：单连接直接下载
+            // 服务器不支持 Range 或文件太小：单连接断点续传
             downloadSingle(client, url, target, onProgress, userAgent)
         } else {
+            val tmpDir = File(target.parentFile, "${target.name}.chunks").apply { mkdirs() }
+            val partFiles = (0 until chunks).map { File(tmpDir, "$it$CHUNK_SUFFIX") }
             val downloaded = AtomicLong(partFiles.sumOf { it.length() })
             val ranges = (0 until chunks).map { i ->
                 val start = total * i / chunks
@@ -119,20 +123,23 @@ object ChunkedDownloader {
         onProgress: (Long, Long) -> Unit,
         userAgent: String,
     ): File {
-        client.newCall(
-            Request.Builder().url(url).get().header("User-Agent", userAgent).build()
-        ).execute().use { resp ->
+        // 断点续传：文件已有部分长度时从该位置继续
+        val resumeFrom = if (target.exists()) target.length() else 0L
+        val builder = Request.Builder().url(url).header("User-Agent", userAgent)
+        if (resumeFrom > 0) builder.header("Range", "bytes=$resumeFrom-")
+        client.newCall(builder.build()).execute().use { resp ->
             if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
             val body = resp.body
-            val total = body.contentLength()
-            target.outputStream().use { out ->
+            val total = resumeFrom + body.contentLength()
+            RandomAccessFile(target, "rw").use { raf ->
+                raf.seek(resumeFrom)
                 val buffer = ByteArray(256 * 1024)
-                var downloaded = 0L
+                var downloaded = resumeFrom
                 body.byteStream().use { input ->
                     while (true) {
                         val read = input.read(buffer)
                         if (read == -1) break
-                        out.write(buffer, 0, read)
+                        raf.write(buffer, 0, read)
                         downloaded += read
                         onProgress(downloaded, total)
                     }

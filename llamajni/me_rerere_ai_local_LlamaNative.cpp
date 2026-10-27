@@ -44,7 +44,7 @@ Java_me_rerere_ai_local_LlamaNative_create(
 
     llama_model_params mparams = llama_model_default_params();
     mparams.n_gpu_layers = 0;
-    mparams.use_mmap = false;
+    mparams.use_mmap = true;
     mparams.use_mlock = false;
 
     llama_model * model = llama_load_model_from_file( modelPath.c_str(), mparams );

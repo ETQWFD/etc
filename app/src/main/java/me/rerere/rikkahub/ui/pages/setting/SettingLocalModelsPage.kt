@@ -2,6 +2,8 @@ package me.rerere.rikkahub.ui.pages.setting
 
 import android.widget.Toast
 import android.os.Build
+import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -254,45 +256,76 @@ fun SettingLocalModelsPage() {
         }
     }
 
-    // 从手机存储导入模型（SAF 文件选择器，复制到 App 模型目录并自动注册使用）
+    // 从手机存储导入模型（SAF 文件夹选择：扫描目录内所有 .gguf 复制到 App 模型目录并注册）
     val importModelLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
+        ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            var ok = false
+            var count = 0
+            var firstFile: File? = null
             withContext(Dispatchers.IO) {
                 try {
-                    val name = context.contentResolver.query(uri, null, null, null, null)?.use { c ->
-                        val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                        if (idx >= 0) c.getString(idx) else null
-                    } ?: "imported-${System.currentTimeMillis()}.gguf"
-                    val target = File(modelsDir, name)
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        target.outputStream().use { out -> input.copyTo(out) }
+                    fun scan(dir: Uri, depth: Int) {
+                        if (depth > 3) return
+                        val children = context.contentResolver
+                            .query(dir, null, null, null, null)
+                            ?.use { c ->
+                                buildList {
+                                    while (c.moveToNext()) {
+                                        val idIdx = c.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                                        val mimeIdx = c.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                                        val nameIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                        val id = if (idIdx >= 0) c.getString(idIdx) else null
+                                        val mime = if (mimeIdx >= 0) c.getString(mimeIdx) else null
+                                        val name = if (nameIdx >= 0) c.getString(nameIdx) else null
+                                        if (id != null && name != null) {
+                                            add(Triple(id, mime ?: "", name))
+                                        }
+                                    }
+                                }
+                            }
+                            .orEmpty()
+                        for ((docId, mime, name) in children) {
+                            val childUri = DocumentsContract.buildDocumentUriUsingTree(uri, docId)
+                            if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                                scan(childUri, depth + 1)
+                            } else if (name.endsWith(".gguf", ignoreCase = true)) {
+                                val target = File(modelsDir, name)
+                                context.contentResolver.openInputStream(childUri)?.use { input ->
+                                    target.outputStream().use { out -> input.copyTo(out) }
+                                }
+                                if (target.exists() && target.length() > 0) {
+                                    count++
+                                    if (firstFile == null) firstFile = target
+                                }
+                            }
+                        }
                     }
-                    if (target.exists() && target.length() > 0) {
-                        me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "导入模型: $name -> ${target.absolutePath}")
-                        registerAndSelect(target, target.name, "local-${target.name}")
-                        refreshTick++
-                        ok = true
-                    }
+                    scan(uri, 0)
                 } catch (e: Exception) {
                     me.rerere.rikkahub.utils.AppLogger.e("LocalModels", "导入失败: ${e.message}")
                 }
             }
-            Toast.makeText(
-                context,
-                if (ok) R.string.local_models_imported else R.string.local_models_failed,
-                Toast.LENGTH_SHORT,
-            ).show()
+            if (firstFile != null) {
+                registerAndSelect(firstFile!!, firstFile!!.name, "local-${firstFile!!.name}")
+                me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "导入完成: $count 个模型，已选中 ${firstFile!!.name}")
+                refreshTick++
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.local_models_imported_count, count),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                Toast.makeText(context, R.string.local_models_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
     // 导入前申请存储权限（满足运行时授权要求；SAF 选择本身无需权限）
     val requestStoragePermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ ->
-        importModelLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+        importModelLauncher.launch(null)
     }
     val onImportClick: () -> Unit = {
         val perm = if (Build.VERSION.SDK_INT >= 33) {
@@ -307,7 +340,11 @@ fun SettingLocalModelsPage() {
         val key = "$repoKey|$path"
         if (runningMap[key] == true) return
         val file = fileOf(repoKey, path)
-        if (file.exists() && file.length() > 0) return
+        // 完整性判断：目标完整且无分片目录残留才算完成，否则继续断点续传
+        val chunksDir = File(file.parentFile, "${file.name}.chunks")
+        val complete = file.exists() && file.length() > 0 &&
+            (!chunksDir.exists() || chunksDir.listFiles()?.isEmpty() == true)
+        if (complete) return
         me.rerere.rikkahub.utils.AppLogger.i("Download", "开始下载: $displayName ($url)")
         runningMap[key] = true
         var lastBytes = 0L
@@ -319,6 +356,8 @@ fun SettingLocalModelsPage() {
                     url = url,
                     target = file,
                     userAgent = "Reai-LocalModel",
+                    // 魔塔直链票据按请求签发，用单连接 + Range 断点续传最稳
+                    chunks = 1,
                     onProgress = { done, total ->
                         if (total > 0) {
                             progressMap[key] = (done.toFloat() / total).coerceIn(0f, 1f)
