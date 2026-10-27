@@ -1,6 +1,10 @@
 package me.rerere.rikkahub.ui.pages.setting
 
 import android.widget.Toast
+import android.os.Build
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -248,6 +252,55 @@ fun SettingLocalModelsPage() {
             me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "使用模型: $displayName ($file)")
             Toast.makeText(context, R.string.local_models_selected, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // 从手机存储导入模型（SAF 文件选择器，复制到 App 模型目录并自动注册使用）
+    val importModelLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            var ok = false
+            withContext(Dispatchers.IO) {
+                try {
+                    val name = context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                        val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (idx >= 0) c.getString(idx) else null
+                    } ?: "imported-${System.currentTimeMillis()}.gguf"
+                    val target = File(modelsDir, name)
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        target.outputStream().use { out -> input.copyTo(out) }
+                    }
+                    if (target.exists() && target.length() > 0) {
+                        me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "导入模型: $name -> ${target.absolutePath}")
+                        registerAndSelect(target, target.name, "local-${target.name}")
+                        refreshTick++
+                        ok = true
+                    }
+                } catch (e: Exception) {
+                    me.rerere.rikkahub.utils.AppLogger.e("LocalModels", "导入失败: ${e.message}")
+                }
+            }
+            Toast.makeText(
+                context,
+                if (ok) R.string.local_models_imported else R.string.local_models_failed,
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    // 导入前申请存储权限（满足运行时授权要求；SAF 选择本身无需权限）
+    val requestStoragePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        importModelLauncher.launch(arrayOf("application/octet-stream", "*/*"))
+    }
+    val onImportClick: () -> Unit = {
+        val perm = if (Build.VERSION.SDK_INT >= 33) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        requestStoragePermission.launch(perm)
     }
 
     fun startDownload(repoKey: String, path: String, url: String, displayName: String) {
@@ -784,10 +837,22 @@ fun SettingLocalModelsPage() {
             }
 
             item {
-                Text(
-                    text = stringResource(R.string.local_models_downloaded_list),
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.local_models_downloaded_list),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedButton(
+                        onClick = { onImportClick() },
+                        modifier = Modifier.height(36.dp),
+                    ) {
+                        Text(stringResource(R.string.local_models_import), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
 
             // 已下载列表（GGUF 聊天模型与图片模型都显示，下载/删除后自动刷新）
@@ -834,6 +899,13 @@ fun SettingLocalModelsPage() {
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        text = file.absolutePath,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                                 if (isActive) {

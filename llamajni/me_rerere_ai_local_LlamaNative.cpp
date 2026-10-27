@@ -65,9 +65,10 @@ Java_me_rerere_ai_local_LlamaNative_create(
 
     llama_sampler_chain_params sparams = llama_sampler_chain_default_params();
     llama_sampler * smpl = llama_sampler_chain_init( sparams );
+    llama_sampler_chain_add( smpl, llama_sampler_init_temp( 0.8f ) );
     llama_sampler_chain_add( smpl, llama_sampler_init_top_k( 40 ) );
     llama_sampler_chain_add( smpl, llama_sampler_init_top_p( 0.9f, 1 ) );
-    llama_sampler_chain_add( smpl, llama_sampler_init_temp( 0.8f ) );
+    llama_sampler_chain_add( smpl, llama_sampler_init_dist( 0 ) );
 
     LLHandle * lh = new LLHandle();
     lh->model = model;
@@ -153,6 +154,9 @@ Java_me_rerere_ai_local_LlamaNative_stream(
     llama_batch batch = llama_batch_init( static_cast<int32_t>( tokens.size() ), 0, 1 );
     for ( size_t i = 0; i < tokens.size(); i++ ) {
         batch.token[i] = tokens[i];
+        batch.pos[i] = (llama_pos) i;      // 必须设置位置，否则 decode 失败
+        batch.n_seq_id[i] = 1;
+        batch.seq_id[i][0] = 0;
         batch.n_tokens++;
     }
     if ( llama_decode( lh->ctx, batch ) != 0 ) {
@@ -167,6 +171,7 @@ Java_me_rerere_ai_local_LlamaNative_stream(
 
     std::string out;
     int32_t limit = maxTokens > 0 ? maxTokens : 512;
+    int32_t nOut = (int32_t) tokens.size();
     char piece[128];
     for ( int32_t i = 0; i < limit; i++ ) {
         llama_token id = llama_sampler_sample( lh->smpl, lh->ctx, -1 );
@@ -184,10 +189,14 @@ Java_me_rerere_ai_local_LlamaNative_stream(
 
         llama_batch sb = llama_batch_init( 1, 0, 1 );
         sb.token[0] = id;
+        sb.pos[0] = (llama_pos) nOut;      // 续写位置 = 输入长度 + 已生成数
+        sb.n_seq_id[0] = 1;
+        sb.seq_id[0][0] = 0;
         sb.n_tokens = 1;
         int rc = llama_decode( lh->ctx, sb );
         llama_batch_free( sb );
         if ( rc != 0 ) break;
+        nOut++;
     }
 
     if ( cbCls ) env->DeleteLocalRef( cbCls );
