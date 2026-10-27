@@ -133,6 +133,21 @@ private val HOT_IMG_REPOS = listOf(
     MsRepo("AI-ModelScope", "stable-diffusion-xl-base-1.0", "Stable Diffusion XL 1.0"),
 )
 
+/** 魔塔官方 MNN 模型（MNN-LLM 手机端格式，llm.mnn 整套），全部已验证存在 */
+private val HOT_MNN_REPOS = listOf(
+    MsRepo("MNN", "Qwen2.5-0.5B-Instruct-MNN", "Qwen2.5 0.5B MNN · 手机推荐"),
+    MsRepo("MNN", "Qwen2.5-1.5B-Instruct-MNN", "Qwen2.5 1.5B MNN · 64 位设备"),
+    MsRepo("MNN", "Qwen2.5-3B-Instruct-MNN", "Qwen2.5 3B MNN · 高配设备"),
+    MsRepo("MNN", "Qwen2.5-7B-Instruct-MNN", "Qwen2.5 7B MNN · 旗舰设备"),
+)
+
+/** MNN 模型目录内需要下载的核心文件 */
+private val MNN_NEEDED_FILES = setOf(
+    "llm.mnn", "llm.mnn.weight", "llm.mnn.json",
+    "tokenizer.txt", "config.json", "llm_config.json",
+    "configuration.json", "embeddings_bf16.bin",
+)
+
 private fun MsRepo.key(): String = "$namespace/$name"
 private fun MsRepo.filesUrl(): String = "https://modelscope.cn/api/v1/models/$namespace/$name/repo/files?Recursive=true"
 private fun MsRepo.downloadUrl(path: String): String = "https://modelscope.cn/api/v1/models/$namespace/$name/repo?FilePath=$path"
@@ -173,6 +188,18 @@ private suspend fun fetchMsFiles(repo: MsRepo, client: OkHttpClient): List<MsFil
             .filter { it.Type == "blob" && it.Path.endsWith(".gguf") && !it.Path.contains("-of-") }
             .map { MsFileRow(it.Path, it.Size) }
             .sortedBy { ggufPriority(it.path) }
+    }
+
+/** 拉取仓库全部 blob 文件（MNN 整套模型用，不过滤格式） */
+private suspend fun fetchAllFiles(repo: MsRepo, client: OkHttpClient): List<MsFileRow> =
+    withContext(Dispatchers.IO) {
+        val body = client.newCall(
+            okhttp3.Request.Builder().url(repo.filesUrl()).get().build(),
+        ).execute().use { it.body?.string().orEmpty() }
+        val resp = runCatching { json.decodeFromString(MsFilesResp.serializer(), body) }.getOrNull()
+        resp?.Data?.Files.orEmpty()
+            .filter { it.Type == "blob" }
+            .map { MsFileRow(it.Path, it.Size) }
     }
 
 @Composable
@@ -421,6 +448,61 @@ fun SettingLocalModelsPage() {
         }
     }
 
+    /** 下载魔塔官方 MNN 模型（整套文件到 models/mnn/{name}/，完成后自动注册） */
+    fun startMnnDownload(repo: MsRepo) {
+        val key = "mnn-${repo.key()}"
+        if (runningMap[key] == true) return
+        val dir = File(modelsDir, "mnn/${repo.name}").apply { mkdirs() }
+        runningMap[key] = true
+        var lastBytes = 0L
+        var lastNanos = System.nanoTime()
+        scope.launch {
+            try {
+                val files = fetchAllFiles(repo, client)
+                val needed = files.filter { File(it.path).name in MNN_NEEDED_FILES }
+                if (needed.isEmpty()) throw IllegalStateException("未找到 MNN 模型文件")
+                var total = needed.sumOf { it.size }
+                var done = 0L
+                for (row in needed) {
+                    val target = File(dir, File(row.path).name)
+                    ChunkedDownloader.download(
+                        client = client,
+                        url = repo.downloadUrl(row.path),
+                        target = target,
+                        userAgent = "Reai-MNN",
+                        chunks = 4,
+                        onProgress = { d, t ->
+                            if (t > 0) {
+                                val current = done + d
+                                progressMap[key] = (current.toFloat() / total).coerceIn(0f, 1f)
+                                val now = System.nanoTime()
+                                val elapsedSec = (now - lastNanos) / 1_000_000_000.0
+                                if (elapsedSec >= 1.0) {
+                                    val rate = ((current - lastBytes) / elapsedSec).toLong()
+                                    lastBytes = current
+                                    lastNanos = now
+                                    speedMap[key] = rate.toSpeedString()
+                                }
+                            }
+                        },
+                    )
+                    done += row.size
+                }
+                if (!File(dir, "config.json").exists()) {
+                    throw IllegalStateException("MNN 模型文件不完整（缺少 config.json）")
+                }
+                registerAndSelect(dir, "MNN ${repo.name}", "mnn-${repo.name}")
+                refreshTick++
+                Toast.makeText(context, R.string.local_models_downloaded, Toast.LENGTH_SHORT).show()
+                me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "MNN 模型下载完成: ${dir.absolutePath}")
+            } catch (e: Exception) {
+                Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                runningMap[key] = false
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
@@ -436,9 +518,11 @@ fun SettingLocalModelsPage() {
         // 顶层计算已下载列表：refreshTick 变化时重新扫描，下载/删除后立即刷新
         val _tick = refreshTick
         val localModels = remember(_tick) {
-            modelsDir.listFiles().orEmpty()
+            val files = modelsDir.listFiles().orEmpty()
                 .filter { it.isFile && it.length() > 0 }
-                .sortedByDescending { it.length() }
+            val mnnDirs = File(modelsDir, "mnn").listFiles().orEmpty()
+                .filter { it.isDirectory && File(it, "config.json").exists() }
+            (files + mnnDirs).sortedByDescending { it.length() }
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -610,6 +694,61 @@ fun SettingLocalModelsPage() {
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    text = stringResource(R.string.local_models_mnn_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+
+            items(HOT_MNN_REPOS, key = { "mnn-${it.key()}" }) { repo ->
+                val repoKey = "mnn-${repo.key()}"
+                val running = runningMap[repoKey] == true
+                val progress = progressMap[repoKey] ?: 0f
+                val speed = speedMap[repoKey]
+                Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = HugeIcons.AiBrain01,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text(repo.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    text = repo.display,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        if (running) {
+                            if (progress > 0f) {
+                                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                            }
+                            Text(
+                                text = if (speed != null) "${(progress * 100).toInt()}% · $speed" else "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Button(
+                                onClick = { startMnnDownload(repo) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(stringResource(R.string.local_models_download))
                             }
                         }
                     }
@@ -969,7 +1108,9 @@ fun SettingLocalModelsPage() {
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
-                                        text = if (file.name.endsWith(".gguf")) {
+                                        text = if (file.isDirectory) {
+                                            "${stringResource(R.string.model_type_mnn)} · ${formatSize(file.length())}"
+                                        } else if (file.name.endsWith(".gguf")) {
                                             "${stringResource(R.string.model_type_chat)} · ${formatSize(file.length())}"
                                         } else {
                                             "${stringResource(R.string.model_type_image)} · ${formatSize(file.length())}"
@@ -1016,8 +1157,9 @@ fun SettingLocalModelsPage() {
                                 }
                                 OutlinedButton(
                                     onClick = {
-                                        file.delete()
+                                        if (file.isDirectory) file.deleteRecursively() else file.delete()
                                         me.rerere.ai.provider.providers.local.LocalLlamaRuntime.release()
+                                        me.rerere.ai.provider.providers.local.LocalMnnRuntime.release()
                                         me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "删除模型文件: ${file.absolutePath}")
                                         scope.launch {
                                             val removedProvider = currentSettings?.providers

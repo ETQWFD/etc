@@ -1663,4 +1663,6 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_import">Import</string>
   <string name="local_models_imported">Model imported and selected</string>
   <string name="local_models_imported_count">%1$d models imported, first one selected</string>
+  <string name="local_models_mnn_title">Official MNN Models (mobile-friendly)</string>
+  <string name="model_type_mnn">MNN Model</string>
 </resources>

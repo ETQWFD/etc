@@ -1665,4 +1665,6 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="local_models_import">导入模型</string>
   <string name="local_models_imported">模型已导入并选中</string>
   <string name="local_models_imported_count">已导入 %1$d 个模型，首个已选中</string>
+  <string name="local_models_mnn_title">MNN 官方模型（手机专用）</string>
+  <string name="model_type_mnn">MNN 模型</string>
 </resources>

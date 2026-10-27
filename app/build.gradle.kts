@@ -30,8 +30,8 @@ android {
         applicationId = "me.rerere.rikkahub"
         minSdk = 26
         targetSdk = 37
-        versionCode = 212
-        versionName = "2.18.0"
+        versionCode = 213
+        versionName = "2.19.0"
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")

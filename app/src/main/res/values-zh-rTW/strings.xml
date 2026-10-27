@@ -1663,4 +1663,6 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_import">匯入模型</string>
   <string name="local_models_imported">模型已匯入並選中</string>
   <string name="local_models_imported_count">已匯入 %1$d 個模型，首個已選中</string>
+  <string name="local_models_mnn_title">MNN 官方模型（手機專用）</string>
+  <string name="model_type_mnn">MNN 模型</string>
 </resources>

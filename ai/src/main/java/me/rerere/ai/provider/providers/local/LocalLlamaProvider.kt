@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.core.TokenUsage
 import me.rerere.ai.local.LlamaNative
+import me.rerere.ai.local.MnnNative
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
@@ -95,6 +96,28 @@ class LocalLlamaProvider(private val context: Context) : Provider<ProviderSettin
         val path = setting.modelPath
         if (path.isBlank()) throw IllegalStateException("本地模型路径为空，请先在本地模型页下载模型")
 
+        val pathFile = java.io.File(path)
+        // MNN 模型：modelPath 为包含 config.json 的模型目录，走 MNN-LLM（魔塔官方 MNN 模型）
+        if (pathFile.isDirectory && java.io.File(pathFile, "config.json").exists()) {
+            if (!MnnNative.available) {
+                throw IllegalStateException("当前设备架构不支持 MNN 本地模型，请使用 GGUF 模型")
+            }
+            val userContent = messages
+                .filter { it.role != MessageRole.TOOL }
+                .joinToString("\n") { msg ->
+                    val who = if (msg.role == MessageRole.USER) "User" else "Assistant"
+                    "$who: ${msg.toText()}"
+                }
+            return LocalMnnRuntime.chat(
+                modelDir = path,
+                userContent = userContent,
+                maxTokens = params.maxTokens ?: 512,
+                threads = setting.threads,
+                streamTo = streamTo,
+            )
+        }
+
+        // 其余为 GGUF 文件，走 llama.cpp
         val roles = mutableListOf<String>()
         val contents = mutableListOf<String>()
         if (params.tools.isNotEmpty()) {
