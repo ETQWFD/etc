@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -90,16 +91,40 @@ private data class MsFileRow(val path: String, val size: Long)
 
 /** 魔塔（ModelScope）热门 GGUF 模型，全部已验证存在 */
 private val HOT_MS_REPOS = listOf(
+    // —— 通义千问系列 ——
     MsRepo("Qwen", "Qwen2.5-0.5B-Instruct-GGUF", "Qwen2.5 0.5B · 32 位手机推荐"),
     MsRepo("Qwen", "Qwen2.5-1.5B-Instruct-GGUF", "Qwen2.5 1.5B · 64 位设备"),
     MsRepo("Qwen", "Qwen2.5-3B-Instruct-GGUF", "Qwen2.5 3B · 高配设备"),
     MsRepo("Qwen", "Qwen2.5-7B-Instruct-GGUF", "Qwen2.5 7B · 旗舰设备"),
+    MsRepo("Qwen", "Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B · 大内存设备"),
+    MsRepo("Qwen", "Qwen2.5-32B-Instruct-GGUF", "Qwen2.5 32B · 顶级设备"),
+    MsRepo("Qwen", "Qwen2-0.5B-Instruct-GGUF", "Qwen2 0.5B · 低配可用"),
     MsRepo("Qwen", "Qwen2-1.5B-Instruct-GGUF", "Qwen2 1.5B"),
     MsRepo("Qwen", "Qwen2-7B-Instruct-GGUF", "Qwen2 7B"),
+    MsRepo("Qwen", "Qwen1.5-0.5B-Chat-GGUF", "Qwen1.5 0.5B 对话"),
     MsRepo("Qwen", "Qwen1.5-1.8B-Chat-GGUF", "Qwen1.5 1.8B 对话"),
-    MsRepo("Qwen", "Qwen2.5-Coder-1.5B-Instruct-GGUF", "Qwen2.5 Coder 1.5B 代码"),
-    MsRepo("Qwen", "Qwen2.5-Coder-7B-Instruct-GGUF", "Qwen2.5 Coder 7B 代码"),
-    MsRepo("Qwen", "Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B · 大内存设备"),
+    MsRepo("Qwen", "Qwen1.5-4B-Chat-GGUF", "Qwen1.5 4B 对话"),
+    MsRepo("Qwen", "Qwen1.5-7B-Chat-GGUF", "Qwen1.5 7B 对话"),
+    // —— 代码模型 ——
+    MsRepo("Qwen", "Qwen2.5-Coder-0.5B-Instruct-GGUF", "Coder 0.5B 代码 · 低配"),
+    MsRepo("Qwen", "Qwen2.5-Coder-1.5B-Instruct-GGUF", "Coder 1.5B 代码"),
+    MsRepo("Qwen", "Qwen2.5-Coder-3B-Instruct-GGUF", "Coder 3B 代码"),
+    MsRepo("Qwen", "Qwen2.5-Coder-7B-Instruct-GGUF", "Coder 7B 代码"),
+    MsRepo("Qwen", "Qwen2.5-Coder-14B-Instruct-GGUF", "Coder 14B 代码"),
+    // —— DeepSeek 系列 ——
+    MsRepo("unsloth", "DeepSeek-R1-Distill-Qwen-1.5B-GGUF", "DeepSeek R1 1.5B 推理"),
+    MsRepo("unsloth", "DeepSeek-R1-Distill-Qwen-7B-GGUF", "DeepSeek R1 7B 推理"),
+    MsRepo("unsloth", "DeepSeek-R1-Distill-Llama-8B-GGUF", "DeepSeek R1 8B 推理"),
+    // —— Llama 系列 ——
+    MsRepo("unsloth", "Llama-3.2-1B-Instruct-GGUF", "Llama 3.2 1B"),
+    MsRepo("unsloth", "Llama-3.2-3B-Instruct-GGUF", "Llama 3.2 3B"),
+)
+
+/** 魔塔热门图片生成模型（checkpoint），已验证存在，可下载管理 */
+private val HOT_IMG_REPOS = listOf(
+    MsRepo("CompVis", "stable-diffusion-v1-4", "Stable Diffusion 1.4 官方"),
+    MsRepo("AI-ModelScope", "stable-diffusion-v1-5", "Stable Diffusion 1.5"),
+    MsRepo("AI-ModelScope", "stable-diffusion-xl-base-1.0", "Stable Diffusion XL 1.0"),
 )
 
 private fun MsRepo.key(): String = "$namespace/$name"
@@ -151,6 +176,7 @@ fun SettingLocalModelsPage() {
     val scope = rememberCoroutineScope()
     val layoutDirection = LocalLayoutDirection.current
     val settingsStore: SettingsStore = koinInject()
+    val currentSettings by settingsStore.settingsFlow.collectAsStateWithLifecycle(initialValue = null)
     val client = remember {
         OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
     }
@@ -219,6 +245,7 @@ fun SettingLocalModelsPage() {
                     fastModelId = targetId,
                 )
             }
+            me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "使用模型: $displayName ($file)")
             Toast.makeText(context, R.string.local_models_selected, Toast.LENGTH_SHORT).show()
         }
     }
@@ -603,6 +630,151 @@ fun SettingLocalModelsPage() {
                 }
             }
 
+            // 图片生成模型区
+            item {
+                Text(
+                    text = stringResource(R.string.local_models_img_market),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            items(HOT_IMG_REPOS, key = { "img-${it.key()}" }) { repo ->
+                val repoKey = "img-${repo.key()}"
+                val files = filesMap[repoKey].orEmpty()
+                val expanded = expandedRepo.value == repoKey
+                val loading = loadingFiles.value == repoKey
+                Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (expanded) {
+                                    expandedRepo.value = null
+                                } else {
+                                    expandedRepo.value = repoKey
+                                    if (files.isEmpty() && !loading) {
+                                        loadingFiles.value = repoKey
+                                        scope.launch {
+                                            try {
+                                                filesMap[repoKey] = fetchMsFiles(repo, client)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            } finally {
+                                                loadingFiles.value = null
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = HugeIcons.PaintBoard,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                                Text(
+                                    text = repo.key(),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = repo.display,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Icon(imageVector = HugeIcons.PaintBoard, contentDescription = null)
+                        }
+                        if (expanded) {
+                            if (loading) {
+                                Row(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(stringResource(R.string.local_models_loading_files), style = MaterialTheme.typography.bodySmall)
+                                }
+                            } else if (files.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.local_models_no_files),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                )
+                            } else {
+                                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                                    files.forEach { row ->
+                                        val key = "$repoKey|${row.path}"
+                                        val progress = progressMap[key] ?: 0f
+                                        val speed = speedMap[key]
+                                        val running = runningMap[key] == true
+                                        val file = fileOf(repoKey, row.path)
+                                        val downloaded = file.exists() && file.length() > 0
+                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = row.path,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    modifier = Modifier.weight(1f),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                Text(
+                                                    text = formatSize(row.size),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                when {
+                                                    downloaded -> Text(
+                                                        text = stringResource(R.string.local_models_done),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                    running -> Text(
+                                                        text = stringResource(R.string.local_models_downloading, (progress * 100).toInt()),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                    )
+                                                    else -> OutlinedButton(
+                                                        onClick = {
+                                                            startDownload(
+                                                                repoKey = repoKey,
+                                                                path = row.path,
+                                                                url = repo.downloadUrl(row.path),
+                                                                displayName = "${repo.name} · ${row.path}",
+                                                            )
+                                                        },
+                                                        modifier = Modifier.height(32.dp),
+                                                    ) {
+                                                        Text(stringResource(R.string.local_models_download), style = MaterialTheme.typography.labelSmall)
+                                                    }
+                                                }
+                                            }
+                                            if (running) {
+                                                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                                                Text(
+                                                    text = if (speed != null) {
+                                                        stringResource(R.string.local_models_downloading_speed, (progress * 100).toInt(), speed)
+                                                    } else {
+                                                        stringResource(R.string.local_models_downloading, (progress * 100).toInt())
+                                                    },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 Text(
                     text = stringResource(R.string.local_models_downloaded_list),
@@ -610,10 +782,10 @@ fun SettingLocalModelsPage() {
                 )
             }
 
-            // 依赖 refreshTick，下载/删除后自动刷新已下载列表
+            // 依赖 refreshTick，下载/删除后自动刷新已下载列表（GGUF 与图片模型都显示）
             val _tick = refreshTick
             val localModels = modelsDir.listFiles().orEmpty()
-                .filter { it.isFile && it.name.endsWith(".gguf") && it.length() > 0 }
+                .filter { it.isFile && it.length() > 0 }
                 .sortedByDescending { it.length() }
             if (localModels.isEmpty()) {
                 item {
@@ -625,6 +797,13 @@ fun SettingLocalModelsPage() {
                 }
             } else {
                 items(localModels, key = { it.absolutePath }) { file ->
+                    val cur = currentSettings
+                    val localProvider = cur?.providers
+                        ?.filterIsInstance<ProviderSetting.Local>()
+                        ?.firstOrNull { it.modelPath == file.absolutePath }
+                    val modelId = localProvider?.models?.firstOrNull()?.id
+                    val isActive = cur != null && modelId != null &&
+                        (cur.chatModelId == modelId || cur.fastModelId == modelId)
                     Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
                         Column(
                             modifier = Modifier.padding(16.dp),
@@ -649,16 +828,25 @@ fun SettingLocalModelsPage() {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
+                                if (isActive) {
+                                    Text(
+                                        text = stringResource(R.string.local_models_in_use),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Button(
-                                    onClick = { registerAndSelect(file, file.name, "local-${file.name}") },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(stringResource(R.string.local_models_use))
+                                if (file.name.endsWith(".gguf")) {
+                                    Button(
+                                        onClick = { registerAndSelect(file, file.name, "local-${file.name}") },
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Text(if (isActive) stringResource(R.string.local_models_using) else stringResource(R.string.local_models_use))
+                                    }
                                 }
                                 OutlinedButton(
                                     onClick = {
@@ -672,13 +860,21 @@ fun SettingLocalModelsPage() {
                                 OutlinedButton(
                                     onClick = {
                                         file.delete()
+                                        me.rerere.ai.provider.providers.local.LocalLlamaRuntime.release()
+                                        me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "删除模型文件: ${file.absolutePath}")
                                         scope.launch {
-                                            val s = settingsStore.settingsFlow.first()
-                                            val removed = s.providers.filterNot {
-                                                it is ProviderSetting.Local && it.modelPath == file.absolutePath
-                                            }
+                                            val removedProvider = currentSettings?.providers
+                                                ?.filterIsInstance<ProviderSetting.Local>()
+                                                ?.firstOrNull { it.modelPath == file.absolutePath }
+                                            val removedModelId = removedProvider?.models?.firstOrNull()?.id
                                             settingsStore.update { st ->
-                                                st.copy(providers = removed)
+                                                st.copy(
+                                                    providers = st.providers.filterNot {
+                                                        it is ProviderSetting.Local && it.modelPath == file.absolutePath
+                                                    },
+                                                    chatModelId = if (removedModelId != null && st.chatModelId == removedModelId) st.fastModelId else st.chatModelId,
+                                                    fastModelId = if (removedModelId != null && st.fastModelId == removedModelId) st.chatModelId else st.fastModelId,
+                                                )
                                             }
                                         }
                                         refreshTick++

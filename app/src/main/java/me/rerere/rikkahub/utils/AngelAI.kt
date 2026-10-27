@@ -188,42 +188,32 @@ object AngelAI {
         }.getOrDefault("")
     }
 
-    private var cachedHandle = 0L
-    private var cachedPath = ""
-
-    private fun localHandle(provider: ProviderSetting.Local): Long {
-        if (cachedHandle != 0L && cachedPath == provider.modelPath) return cachedHandle
-        if (cachedHandle != 0L) {
-            runCatching { me.rerere.ai.local.LlamaNative.free(cachedHandle) }
-            cachedHandle = 0L
-        }
-        if (provider.modelPath.isBlank()) throw IllegalStateException("本地模型路径为空，请先在本地模型页下载模型")
-        val handle = me.rerere.ai.local.LlamaNative.create(provider.modelPath, provider.nCtx, provider.threads)
-        if (handle == 0L) throw IllegalStateException("本地模型加载失败：内存不足或模型文件损坏")
-        cachedHandle = handle
-        cachedPath = provider.modelPath
-        return handle
-    }
-
     /**
      * 使用本地 GGUF 模型做决策（完全离线）。
+     * 复用全局 [LocalLlamaRuntime]：单句柄、串行推理、并发安全。
      */
     private fun callLocal(provider: ProviderSetting.Local, system: String, user: String): String {
-        val handle = localHandle(provider)
-        return me.rerere.ai.local.LlamaNative.stream(
-            handle,
-            arrayOf("system", "user"),
-            arrayOf(system, user),
-            1024,
-            0.2f,
-            0.9f,
-            object : me.rerere.ai.local.LlamaNative.TokenCallback {
-                override fun onToken(token: String) {}
-                override fun onError(message: String) {
-                    throw IllegalStateException(message)
-                }
-            },
-        )
+        if (provider.modelPath.isBlank()) throw IllegalStateException("本地模型路径为空，请先在本地模型页下载模型")
+        return me.rerere.ai.provider.providers.local.LocalLlamaRuntime.run(
+            provider.modelPath,
+            provider.nCtx,
+            provider.threads,
+        ) { handle ->
+            me.rerere.ai.local.LlamaNative.stream(
+                handle,
+                arrayOf("system", "user"),
+                arrayOf(system, user),
+                1024,
+                0.2f,
+                0.9f,
+                object : me.rerere.ai.local.LlamaNative.TokenCallback {
+                    override fun onToken(token: String) {}
+                    override fun onError(message: String) {
+                        throw IllegalStateException(message)
+                    }
+                },
+            )
+        }
     }
 
     private fun parsePlan(raw: String): AngelPlan {

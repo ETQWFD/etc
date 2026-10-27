@@ -84,6 +84,7 @@ class LocalLlamaProvider(private val context: Context) : Provider<ProviderSettin
 
     /**
      * 执行一次对话。streamTo 非空时逐 token 回调。
+     * 通过 [LocalLlamaRuntime] 串行化：全局单句柄、自动重建、并发安全。
      */
     private fun runChat(
         setting: ProviderSetting.Local,
@@ -93,18 +94,6 @@ class LocalLlamaProvider(private val context: Context) : Provider<ProviderSettin
     ): String {
         val path = setting.modelPath
         if (path.isBlank()) throw IllegalStateException("本地模型路径为空，请先在本地模型页下载模型")
-        var handle = handleHolder.get()
-        // 换模型（或首次加载）时重建会话句柄；旧模型句柄先释放避免内存泄漏
-        if (handle == 0L || loadedPathHolder.get() != path) {
-            if (handle != 0L) {
-                LlamaNative.free(handle)
-                handleHolder.set(0L)
-            }
-            val created = LlamaNative.create(path, setting.nCtx, setting.threads)
-            if (created == 0L) throw IllegalStateException("模型加载失败：内存不足或模型文件损坏，请重启应用后重试")
-            handleHolder.set(created)
-            loadedPathHolder.set(path)
-        }
 
         val roles = mutableListOf<String>()
         val contents = mutableListOf<String>()
@@ -128,18 +117,20 @@ class LocalLlamaProvider(private val context: Context) : Provider<ProviderSettin
         }
 
         return try {
-            LlamaNative.stream(
-                handle,
-                roles.toTypedArray(),
-                contents.toTypedArray(),
-                params.maxTokens ?: 512,
-                params.temperature ?: 0.8f,
-                params.topP ?: 0.9f,
-                cb,
-            )
+            LocalLlamaRuntime.run(path, setting.nCtx, setting.threads) { handle ->
+                LlamaNative.stream(
+                    handle,
+                    roles.toTypedArray(),
+                    contents.toTypedArray(),
+                    params.maxTokens ?: 512,
+                    params.temperature ?: 0.8f,
+                    params.topP ?: 0.9f,
+                    cb,
+                )
+            }
         } catch (e: IllegalStateException) {
             if (e.message?.contains("模型句柄无效") == true) {
-                handleHolder.set(0L)
+                LocalLlamaRuntime.release()
             }
             throw e
         }

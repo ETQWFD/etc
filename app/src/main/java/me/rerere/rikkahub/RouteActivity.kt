@@ -122,6 +122,7 @@ import me.rerere.rikkahub.ui.pages.setting.SettingFilesPage
 import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
 import me.rerere.rikkahub.ui.pages.setting.SettingAngelPage
 import me.rerere.rikkahub.ui.pages.setting.SettingLocalModelsPage
+import me.rerere.rikkahub.ui.pages.setting.SettingLogsPage
 import me.rerere.rikkahub.ui.pages.setting.SettingModelPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
@@ -522,6 +523,10 @@ class RouteActivity : ComponentActivity() {
                                 SettingDonatePage()
                             }
 
+                            entry<Screen.SettingLogs> {
+                                SettingLogsPage()
+                            }
+
                             entry<Screen.SettingFiles> {
                                 SettingFilesPage()
                             }
@@ -754,6 +759,9 @@ sealed interface Screen : NavKey {
 
     @Serializable
     data object SettingLocalModels : Screen
+
+    @Serializable
+    data object SettingLogs : Screen
 
     @Serializable
     data object SettingDonate : Screen

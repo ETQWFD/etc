@@ -1647,4 +1647,15 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="setting_media_page_api_key_hint">貼上你的介面金鑰</string>
   <string name="setting_media_page_base_url">連線位址</string>
   <string name="setting_media_page_base_url_hint">例如 https://api.example.com/v1</string>
+  <string name="local_models_in_use">使用中</string>
+  <string name="local_models_using">正在使用</string>
+  <string name="local_models_img_market">圖片生成模型</string>
+  <string name="local_models_no_files">沒有檔案</string>
+  <string name="logs_page_title">日誌</string>
+  <string name="logs_copy_all">複製全部</string>
+  <string name="logs_clear">清空</string>
+  <string name="logs_empty">暫無日誌</string>
+  <string name="logs_copied">日誌已複製</string>
+  <string name="setting_page_logs">日誌</string>
+  <string name="setting_page_logs_desc">查看、複製與分享詳細的應用程式日誌</string>
 </resources>

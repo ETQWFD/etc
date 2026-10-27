@@ -195,6 +195,7 @@ class ChatService(
         solution: ChatErrorSolution? = null,
     ) {
         if (error is CancellationException) return
+        me.rerere.rikkahub.utils.AppLogger.e("ChatService", "${title ?: "error"}: ${error.message}")
         _errors.update {
             it + ChatError(title = title, error = error, conversationId = conversationId, solution = solution)
         }
@@ -620,15 +621,13 @@ class ChatService(
             // reset suggestions
             updateConversation(conversationId, initialConversation.copy(chatSuggestions = emptyList()))
 
-            // memory tool
-            if (!model.abilities.contains(ModelAbility.TOOL)) {
-                if (useExternalWebSearch || mcpManager.getAllAvailableTools().isNotEmpty()) {
-                    addError(
-                        IllegalStateException(context.getString(R.string.tools_warning)),
-                        conversationId,
-                        title = context.getString(R.string.error_title_tool_unavailable)
-                    )
-                }
+            // 工具能力提示：仅当用户主动要求外部搜索时才提示；MCP 工具存在但不被用户要求时不打扰
+            if (!model.abilities.contains(ModelAbility.TOOL) && useExternalWebSearch) {
+                addError(
+                    IllegalStateException(context.getString(R.string.tools_warning)),
+                    conversationId,
+                    title = context.getString(R.string.error_title_tool_unavailable)
+                )
             }
 
             // check invalid messages

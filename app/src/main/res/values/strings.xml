@@ -1647,4 +1647,15 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="setting_media_page_api_key_hint">Paste your API Key</string>
   <string name="setting_media_page_base_url">Base URL</string>
   <string name="setting_media_page_base_url_hint">e.g. https://api.example.com/v1</string>
+  <string name="local_models_in_use">In use</string>
+  <string name="local_models_using">Using</string>
+  <string name="local_models_img_market">Image models</string>
+  <string name="local_models_no_files">No files</string>
+  <string name="logs_page_title">Logs</string>
+  <string name="logs_copy_all">Copy all</string>
+  <string name="logs_clear">Clear</string>
+  <string name="logs_empty">No logs yet.</string>
+  <string name="logs_copied">Logs copied</string>
+  <string name="setting_page_logs">Logs</string>
+  <string name="setting_page_logs_desc">View, copy and share detailed app logs</string>
 </resources>

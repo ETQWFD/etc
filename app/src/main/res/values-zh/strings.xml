@@ -1649,4 +1649,15 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="setting_media_page_api_key_hint">粘贴你的接口密钥</string>
   <string name="setting_media_page_base_url">连接地址</string>
   <string name="setting_media_page_base_url_hint">例如 https://api.example.com/v1</string>
+  <string name="local_models_in_use">使用中</string>
+  <string name="local_models_using">正在使用</string>
+  <string name="local_models_img_market">图片生成模型</string>
+  <string name="local_models_no_files">没有文件</string>
+  <string name="logs_page_title">日志</string>
+  <string name="logs_copy_all">复制全部</string>
+  <string name="logs_clear">清空</string>
+  <string name="logs_empty">暂无日志</string>
+  <string name="logs_copied">日志已复制</string>
+  <string name="setting_page_logs">日志</string>
+  <string name="setting_page_logs_desc">查看、复制与分享详细的应用程序日志</string>
 </resources>

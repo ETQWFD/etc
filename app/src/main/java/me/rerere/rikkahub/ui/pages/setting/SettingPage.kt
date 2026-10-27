@@ -221,6 +221,12 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                         supportingContent = { Text(stringResource(R.string.setting_page_local_models_desc)) },
                         headlineContent = { Text(stringResource(R.string.setting_page_local_models)) },
                     )
+                    item(
+                        onClick = { navController.navigate(Screen.SettingLogs) },
+                        leadingContent = { Icon(HugeIcons.Database02, null) },
+                        supportingContent = { Text(stringResource(R.string.setting_page_logs_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_page_logs)) },
+                    )
                 }
             }
 
