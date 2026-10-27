@@ -1658,4 +1658,6 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="logs_copied">日誌已複製</string>
   <string name="setting_page_logs">日誌</string>
   <string name="setting_page_logs_desc">查看、複製與分享詳細的應用程式日誌</string>
+  <string name="model_type_chat">聊天模型</string>
+  <string name="model_type_image">繪圖模型</string>
 </resources>

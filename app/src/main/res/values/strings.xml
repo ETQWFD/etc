@@ -1658,4 +1658,6 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="logs_copied">Logs copied</string>
   <string name="setting_page_logs">Logs</string>
   <string name="setting_page_logs_desc">View, copy and share detailed app logs</string>
+  <string name="model_type_chat">Chat model</string>
+  <string name="model_type_image">Image model</string>
 </resources>

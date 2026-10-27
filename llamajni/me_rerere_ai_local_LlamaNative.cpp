@@ -124,12 +124,26 @@ Java_me_rerere_ai_local_LlamaNative_stream(
         chat[i].content = contentStrs[i].c_str();
     }
 
-    int32_t len = llama_chat_apply_template( lh->model, nullptr, chat.data(), nMsg, true, nullptr, 0 );
-    if ( len < 0 ) return env->NewStringUTF( "" );
     std::string prompt;
-    prompt.resize( static_cast<size_t>( len ) + 1 );
-    llama_chat_apply_template( lh->model, nullptr, chat.data(), nMsg, true, &prompt[0], len + 1 );
-    if ( !prompt.empty() && prompt.back() == '\0' ) prompt.pop_back();
+    int32_t len = llama_chat_apply_template( lh->model, nullptr, chat.data(), nMsg, true, nullptr, 0 );
+    if ( len < 0 ) {
+        // 模型元数据缺少 chat_template 时回退到手工通用模板，保证任何 GGUF 都能对话
+        for ( jsize i = 0; i < nMsg; i++ ) {
+            std::string role = roleStrs[i];
+            if ( role == "system" ) {
+                prompt += "System: " + contentStrs[i] + "\n\n";
+            } else if ( role == "user" ) {
+                prompt += "User: " + contentStrs[i] + "\n\n";
+            } else if ( role == "assistant" ) {
+                prompt += "Assistant: " + contentStrs[i] + "\n\n";
+            }
+        }
+        prompt += "Assistant:";
+    } else {
+        prompt.resize( static_cast<size_t>( len ) + 1 );
+        llama_chat_apply_template( lh->model, nullptr, chat.data(), nMsg, true, &prompt[0], len + 1 );
+        if ( !prompt.empty() && prompt.back() == '\0' ) prompt.pop_back();
+    }
 
     int32_t nTok = llama_tokenize( lh->model, prompt.c_str(), (int32_t) prompt.size(), nullptr, 0, true, false );
     if ( nTok <= 0 ) return env->NewStringUTF( "" );

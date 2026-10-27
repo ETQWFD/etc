@@ -5,133 +5,78 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/png" href="reai-icon.png">
-<title>RikkaHub etc 2.0 · 安卓多架构客户端（32 位 / 64 位 / 虚拟机通用）</title>
-<meta name="description" content="RikkaHub etc 2.0 是安卓聊天客户端，单个安装包同时支持 32 位、64 位 ARM 手机和 x86_64 模拟器虚拟机，内置 Termux 终端、Angel 模式、本地模型下载与三语切换。">
+<title>RikkaHub etc 2.0</title>
+<meta name="description" content="RikkaHub etc 2.0 - 安卓多架构聊天客户端。单包支持 armeabi-v7a / arm64-v8a / x86_64。">
 <style>
-  :root{
-    --bg:#0e1116; --panel:#161b22; --line:#262d36; --fg:#e6e9ee; --muted:#9aa6b2;
-    --accent:#3fbf7f; --accent-fg:#06281a; --link:#5cc8ff;
-  }
-  @media (prefers-color-scheme: light){
-    :root{
-      --bg:#f6f7f9; --panel:#ffffff; --line:#e2e6ea; --fg:#1a1d21; --muted:#5b6672;
-      --accent:#1f9d63; --accent-fg:#ffffff; --link:#0b6fa4;
-    }
-  }
-  *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
-  body{margin:0;background:var(--bg);color:var(--fg);
-    font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
-    -webkit-font-smoothing:antialiased}
-  .wrap{max-width:860px;margin:0 auto;padding:0 20px}
-  header.nav{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 86%,transparent);
-    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-  .nav .wrap{display:flex;align-items:center;justify-content:space-between;height:58px}
-  .brand{font-weight:700;letter-spacing:.5px;font-size:18px;text-decoration:none;color:var(--fg)}
-  .brand span{color:var(--accent)}
-  nav a{color:var(--muted);text-decoration:none;margin-left:22px;font-size:14px}
-  nav a:hover{color:var(--fg)}
-  .hero{padding:84px 0 40px}
-  .tag{display:inline-block;font-size:13px;color:var(--accent);border:1px solid var(--accent);
-    border-radius:999px;padding:3px 12px;margin-bottom:20px}
-  h1{font-size:40px;line-height:1.2;margin:0 0 14px;letter-spacing:-.5px}
-  .lead{font-size:18px;color:var(--muted);max-width:680px;margin:0 0 30px}
-  .dl{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-  .btn{display:inline-block;background:var(--accent);color:var(--accent-fg);font-weight:600;
-    padding:13px 26px;border-radius:10px;text-decoration:none;font-size:16px}
-  .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
-  .meta{font-size:13px;color:var(--muted);margin-top:16px}
-  .meta code{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px}
-  section{padding:34px 0;border-top:1px solid var(--line)}
-  h2{font-size:22px;margin:0 0 16px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
-  .card h3{margin:0 0 6px;font-size:16px}
-  .card p{margin:0;color:var(--muted);font-size:14px}
-  .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
-    border-radius:10px;padding:16px 18px;color:var(--muted);font-size:14px}
-  .note strong{color:var(--fg)}
-  ul{padding-left:20px;color:var(--muted)}
-  ul li{margin:6px 0}
-  a{color:var(--link)}
-  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-  footer{padding:40px 0 60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
-  @media (max-width:560px){h1{font-size:30px}.hero{padding:56px 0 28px}}
+:root{--bg:#fff;--fg:#111;--muted:#555;--line:#ddd;--accent:#0a66c2}
+@media (prefers-color-scheme: dark){:root{--bg:#111;--fg:#eee;--muted:#aaa;--line:#2a2a2a;--accent:#6cb2ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:24px 20px 80px}
+h1{font-size:26px;margin:8px 0 4px;font-weight:600}
+h2{font-size:19px;margin:36px 0 10px;font-weight:600;border-bottom:1px solid var(--line);padding-bottom:6px}
+p{margin:6px 0}
+a{color:var(--accent)}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--line);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:10px 0}
+td,th{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--line)}
+.dl{display:inline-block;background:var(--accent);color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;margin:10px 6px 0 0}
+.dl.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+ul{margin:6px 0;padding-left:22px}
+li{margin:4px 0}
+.meta{color:var(--muted);font-size:13px}
 </style>
 </head>
 <body>
-<header class="nav">
-  <div class="wrap">
-    <a class="brand" href="#">RikkaHub <span>etc 2.0</span></a>
-    <nav>
-      <a href="#features">功能</a>
-      <a href="docs.html">文档</a>
-      <a href="#install">安装</a>
-      <a href="#source">源码</a>
-    </nav>
-  </div>
-</header>
+<div class="wrap">
 
-<main class="wrap">
-  <div class="hero">
-    <img src="reai-icon.png" alt="RikkaHub etc 2.0" style="width:84px;height:84px;border-radius:20px;margin-bottom:18px">
-    <span class="tag">armeabi-v7a · arm64-v8a · x86_64 一个包全支持</span>
-    <h1>手机和虚拟机<br>通用的安卓客户端</h1>
-    <p class="lead">RikkaHub etc 2.0 是开源项目 RikkaHub 的修改版（开发者 etc）。一个安装包内置 32 位 ARM、64 位 ARM 和 x86_64 三套原生库，旧手机、新手机和安卓模拟器 / 虚拟机均可直接安装。内置 Termux 终端与 Angel 模式，模型接口自行填写，支持 OpenAI、Anthropic、Google 等兼容协议。</p>
-    <div class="dl">
-      <a class="btn" id="dl" href="https://github.com/ETQWFD/etc/releases/latest/download/Reai.apk" download>直接下载 APK</a>
-      <a class="btn ghost" href="https://github.com/ETQWFD/etc">查看源码</a>
-    </div>
-    <p class="meta">
-      版本 <code id="ver">2.14.0</code> ·
-      架构 <code>armeabi-v7a / arm64-v8a / x86_64</code> ·
-      需要 <code>Android 8.0 (API 26)</code> 及以上 ·
-      大小 <code>61.1 MB</code>
-    </p>
-    <p class="meta">
-      SHA-256：<code>be8c46924fa289a21e3b288d70ab44f8d51be7381e0763b5b16f95c277d947da</code>
-    </p>
-    <p class="meta">
-      用户交流：<a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=vx0ORxV0lTvfqTswRKWGCpPT_68gESCZ&authKey=x2BUF4uTyNW%2BhrFAU7BdtEifob92M7ms3zhK5EA8U4bNgGUxsEjFUNvpu0uyNTzO&noverify=0&group_code=1057717202" rel="noopener">点击加入 QQ 群（1057717202）</a>
-    </p>
-  </div>
+<h1>RikkaHub etc 2.0</h1>
+<p class="meta">开源项目 RikkaHub 的修改版 · 开发者 etc · 安卓聊天客户端</p>
 
-  <section id="features">
-    <h2>功能</h2>
-    <div class="grid">
-      <div class="card"><h3>Termux 终端</h3><p>工作区终端采用 Termux 核心，无需 root 即可运行，32 / 64 位均有对应组件，解决旧版 Ubuntu rootfs 的 GLIBC 版本不匹配问题。</p></div>
-      <div class="card"><h3>Angel 模式</h3><p>在设置中授予无障碍权限后，可在聊天中下指令，程序会读取屏幕并执行点击、输入、滚动等操作。</p></div>
-      <div class="card"><h3>本地模型下载</h3><p>内置 GGUF 聊天模型与绘图模型下载（含 DeepSeek、Qwen、Llama 等），多线程分块加速，下载完成后在设置中选中即可离线使用。</p></div>
-      <div class="card"><h3>三语切换</h3><p>简体中文、繁体中文、English 一键切换，界面、设置与说明均完整翻译。</p></div>
-      <div class="card"><h3>多服务商切换</h3><p>自定义 API 地址、密钥和模型列表，一套界面切换不同后端，接入后可在线对话与调用工具。</p></div>
-      <div class="card"><h3>应用内更新</h3><p>检查 GitHub 新版本，分块加速下载后直接跳转系统安装器完成安装。</p></div>
-    </div>
-  </section>
+<p>单个安装包内置 <code>armeabi-v7a</code>（32 位）、<code>arm64-v8a</code>（64 位）、<code>x86_64</code>（模拟器 / 虚拟机）三套原生库，安装时按设备架构自动选择，无需分别找包。需要 Android 8.0（API 26）及以上。</p>
 
-  <section id="install">
-    <h2>安装说明</h2>
-    <div class="note">
-      这一个安装包已包含 <strong>armeabi-v7a（32 位 ARM）、arm64-v8a（64 位 ARM）、x86_64（模拟器 / 虚拟机）</strong>三套原生库，系统安装时会自动选用对应架构，无需再找不同安装包。
-      三套原生库随包释放为对应架构的实体文件，真机、模拟器、虚拟机均可正常安装，不会出现找不到 libsimple.so 之类的闪退。
-      <br><br>
-      下载后若系统提示“未知来源”，在设置中允许当前浏览器安装应用即可。应用未上架应用商店，安装前可对照页面公布的 SHA-256 校验值核对文件。
-    </div>
-  </section>
+<p>
+<a class="dl" href="https://github.com/ETQWFD/etc/releases/latest/download/Reai.apk" download>下载 APK</a>
+<a class="dl ghost" href="https://github.com/ETQWFD/etc">源码</a>
+</p>
 
-  <section id="source">
-    <h2>源码与许可</h2>
-    <ul>
-      <li>本程序是 <a href="https://github.com/rikkahub/rikkahub" rel="noopener">RikkaHub</a> 的修改版（fork），显示名改为 RikkaHub etc 2.0（开发者 etc），原作者版权与许可全部保留。</li>
-      <li>整体按 <strong>AGPL-3.0</strong> 发布（上游即为 AGPL-3.0，且包含 GPL/AGPL 许可的原生组件），<strong>不能</strong>改按 MIT 发布。完整源码随 Release 一并提供。</li>
-      <li>内置原生组件：MuPDF（AGPL-3.0）、PRoot/talloc（GPL/LGPL）、simple 分词（MIT），许可细节见仓库 <code>NOTICE</code>。</li>
-    </ul>
-  </section>
-</main>
+<table>
+<tr><th>项目</th><th>值</th></tr>
+<tr><td>版本</td><td id="ver">2.15.0</td></tr>
+<tr><td>架构</td><td>armeabi-v7a / arm64-v8a / x86_64</td></tr>
+<tr><td>大小</td><td>61.1 MB</td></tr>
+<tr><td>SHA-256</td><td id="sha">8ed34b090ea2f88266cd91d9040f614212e6d75cbd8539aa236a2e26aa43f43f</td></tr>
+</table>
 
-<footer>
-  <div class="wrap">
-    RikkaHub etc 2.0 —— 开发者 etc，RikkaHub 的多架构（32 位 / 64 位 / x86_64）分叉构建。本页面不收集任何信息，下载由 GitHub Releases 直接提供。
-  </div>
-</footer>
+<p class="meta">安装前可对照 SHA-256 校验文件。系统提示未知来源时，在设置中允许当前浏览器安装即可。</p>
+
+<h2>功能</h2>
+<ul>
+<li>聊天：支持流式输出，模型服务商自行配置</li>
+<li>服务商：内置 OpenAI、DeepSeek、月之暗面、智谱、通义、Gemini、Claude、Ollama 等 30 家预设，填写 API 地址与密钥即可使用</li>
+<li>本地模型：内置 GGUF 聊天模型与绘图模型下载，支持 DeepSeek、Qwen、Llama 系列，下载后离线对话</li>
+<li>Termux 终端：工作区终端采用 Termux 核心，无需 root</li>
+<li>Angel 模式：授予无障碍权限后，可在聊天中下指令执行点击、输入、滚动等操作</li>
+<li>应用内更新：检查 GitHub Release，分块下载后跳转系统安装器</li>
+<li>语言：简体中文 / 繁体中文 / English 切换</li>
+</ul>
+
+<h2>安装</h2>
+<p>下载 <code>Reai.apk</code> 安装即可。安装包已包含三套架构的原生库，真机、模拟器、虚拟机均可用。应用未上架应用商店。</p>
+
+<h2>源码与许可</h2>
+<ul>
+<li>本程序是 <a href="https://github.com/rikkahub/rikkahub">RikkaHub</a> 的修改版，显示名改为 RikkaHub etc 2.0（开发者 etc），原作者版权与许可全部保留。</li>
+<li>整体按 <strong>AGPL-3.0</strong> 发布（上游即为 AGPL-3.0，且包含 GPL/AGPL 许可的原生组件），不能改按 MIT 发布。完整源码随 Release 提供。</li>
+<li>内置原生组件：MuPDF（AGPL-3.0）、PRoot/talloc（GPL/LGPL）、simple 分词（MIT）。许可细节见仓库 NOTICE。</li>
+</ul>
+
+<h2>交流</h2>
+<p class="meta">QQ 群：<a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=vx0ORxV0lTvfqTswRKWGCpPT_68gESCZ&authKey=x2BUF4uTyNW%2BhrFAU7BdtEifob92M7ms3zhK5EA8U4bNgGUxsEjFUNvpu0uyNTzO&noverify=0&group_code=1057717202">1057717202</a></p>
+
+<p class="meta">本页面不收集任何信息，下载由 GitHub Releases 直接提供。</p>
+
+</div>
 </body>
 </html>

@@ -750,6 +750,10 @@ fun Settings.findModelById(uuid: Uuid?, fallback: Uuid? = null): Model? {
         ?: fallback?.let { this.providers.findModelById(it) }
 }
 
+/** 返回任一服务商下的第一个可用模型（用于兜底，避免删除模型后选中项悬空） */
+fun Settings.firstModelOrNull(): Model? =
+    this.providers.asSequence().mapNotNull { it.models.firstOrNull() }.firstOrNull()
+
 fun List<ProviderSetting>.findModelById(uuid: Uuid): Model? {
     this.forEach { setting ->
         setting.models.forEach { model ->

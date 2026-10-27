@@ -61,6 +61,7 @@ import me.rerere.rikkahub.data.event.AppEvent
 import me.rerere.rikkahub.data.event.AppEventBus
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.datastore.findModelById
+import me.rerere.rikkahub.data.datastore.firstModelOrNull
 import me.rerere.rikkahub.data.datastore.findProvider
 import me.rerere.rikkahub.data.datastore.getAssistantById
 import me.rerere.rikkahub.data.datastore.getCurrentAssistant
@@ -836,6 +837,7 @@ class ChatService(
         runCatching {
             val settings = settingsStore.settingsFlow.first()
             val model = settings.findModelById(settings.fastModelId)
+                ?: settings.firstModelOrNull()
                 ?: throw IllegalStateException(context.getString(R.string.error_fast_model_not_found))
             val provider = model.findProvider(settings.providers)
                 ?: throw IllegalStateException(context.getString(R.string.error_fast_model_provider_not_found))
@@ -856,13 +858,16 @@ class ChatService(
 
             // 生成完，conversation可能不是最新了，因此需要重新获取
             conversationRepo.getConversationById(conversation.id)?.let {
+                val title = result.message.toText().trim()
+                me.rerere.rikkahub.utils.AppLogger.i("Title", "标题已生成: $title")
                 saveConversation(
                     conversationId,
-                    it.copy(title = result.message.toText().trim())
+                    it.copy(title = title)
                 )
             }
         }.onFailure {
             it.printStackTrace()
+            me.rerere.rikkahub.utils.AppLogger.e("Title", "标题生成失败: ${it.message}")
             addError(
                 error = it,
                 conversationId = conversationId,

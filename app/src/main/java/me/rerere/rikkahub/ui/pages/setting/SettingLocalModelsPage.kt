@@ -255,6 +255,7 @@ fun SettingLocalModelsPage() {
         if (runningMap[key] == true) return
         val file = fileOf(repoKey, path)
         if (file.exists() && file.length() > 0) return
+        me.rerere.rikkahub.utils.AppLogger.i("Download", "开始下载: $displayName ($url)")
         runningMap[key] = true
         var lastBytes = 0L
         var lastNanos = System.nanoTime()
@@ -302,6 +303,13 @@ fun SettingLocalModelsPage() {
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = CustomColors.topBarColors.containerColor,
     ) { innerPadding ->
+        // 顶层计算已下载列表：refreshTick 变化时重新扫描，下载/删除后立即刷新
+        val _tick = refreshTick
+        val localModels = remember(_tick) {
+            modelsDir.listFiles().orEmpty()
+                .filter { it.isFile && it.length() > 0 }
+                .sortedByDescending { it.length() }
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -782,11 +790,7 @@ fun SettingLocalModelsPage() {
                 )
             }
 
-            // 依赖 refreshTick，下载/删除后自动刷新已下载列表（GGUF 与图片模型都显示）
-            val _tick = refreshTick
-            val localModels = modelsDir.listFiles().orEmpty()
-                .filter { it.isFile && it.length() > 0 }
-                .sortedByDescending { it.length() }
+            // 已下载列表（GGUF 聊天模型与图片模型都显示，下载/删除后自动刷新）
             if (localModels.isEmpty()) {
                 item {
                     Text(
@@ -823,7 +827,11 @@ fun SettingLocalModelsPage() {
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                     Text(
-                                        text = formatSize(file.length()),
+                                        text = if (file.name.endsWith(".gguf")) {
+                                            "${stringResource(R.string.model_type_chat)} · ${formatSize(file.length())}"
+                                        } else {
+                                            "${stringResource(R.string.model_type_image)} · ${formatSize(file.length())}"
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
@@ -868,12 +876,17 @@ fun SettingLocalModelsPage() {
                                                 ?.firstOrNull { it.modelPath == file.absolutePath }
                                             val removedModelId = removedProvider?.models?.firstOrNull()?.id
                                             settingsStore.update { st ->
+                                                val providers = st.providers.filterNot {
+                                                    it is ProviderSetting.Local && it.modelPath == file.absolutePath
+                                                }
+                                                // 删除当前选中模型后重置到任一可用模型，避免选中项悬空导致标题无法生成
+                                                val fallbackId = providers.asSequence()
+                                                    .mapNotNull { it.models.firstOrNull()?.id }
+                                                    .firstOrNull()
                                                 st.copy(
-                                                    providers = st.providers.filterNot {
-                                                        it is ProviderSetting.Local && it.modelPath == file.absolutePath
-                                                    },
-                                                    chatModelId = if (removedModelId != null && st.chatModelId == removedModelId) st.fastModelId else st.chatModelId,
-                                                    fastModelId = if (removedModelId != null && st.fastModelId == removedModelId) st.chatModelId else st.fastModelId,
+                                                    providers = providers,
+                                                    chatModelId = if (removedModelId != null && st.chatModelId == removedModelId) fallbackId ?: st.chatModelId else st.chatModelId,
+                                                    fastModelId = if (removedModelId != null && st.fastModelId == removedModelId) fallbackId ?: st.fastModelId else st.fastModelId,
                                                 )
                                             }
                                         }
