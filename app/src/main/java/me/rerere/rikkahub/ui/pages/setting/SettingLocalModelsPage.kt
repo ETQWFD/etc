@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
@@ -56,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -146,9 +148,14 @@ private val HOT_MNN_REPOS = listOf(
     // —— 代码模型 ——
     MsRepo("MNN", "Qwen2.5-Coder-1.5B-Instruct-MNN", "Coder 1.5B MNN 代码"),
     MsRepo("MNN", "Qwen2.5-Coder-7B-Instruct-MNN", "Coder 7B MNN 代码"),
+    // —— Qwen 1.5 系列 ——
+    MsRepo("MNN", "Qwen1.5-0.5B-Chat-MNN", "Qwen1.5 0.5B MNN"),
     // —— Llama 系列 ——
     MsRepo("MNN", "Llama-3.2-1B-Instruct-MNN", "Llama 3.2 1B MNN"),
     MsRepo("MNN", "Llama-3.2-3B-Instruct-MNN", "Llama 3.2 3B MNN"),
+    // —— 其它 ——
+    MsRepo("MNN", "Gemma-2-2b-it-MNN", "Gemma-2 2B MNN"),
+    MsRepo("MNN", "Baichuan2-7B-Chat-MNN", "Baichuan2 7B MNN"),
 )
 
 /** MNN 模型目录内需要下载的核心文件 */
@@ -230,6 +237,8 @@ fun SettingLocalModelsPage() {
     val progressMap = remember { mutableStateMapOf<String, Float>() }
     val speedMap = remember { mutableStateMapOf<String, String>() }
     val runningMap = remember { mutableStateMapOf<String, Boolean>() }
+    val downloadJobs = remember { mutableStateMapOf<String, Job>() }
+    val sizeMap = remember { mutableStateMapOf<String, String>() }
     val filesMap = remember { mutableStateMapOf<String, List<MsFileRow>>() }
     val expandedRepo = remember { mutableStateOf<String?>(null) }
     val loadingFiles = remember { mutableStateOf<String?>(null) }
@@ -293,20 +302,22 @@ fun SettingLocalModelsPage() {
         }
     }
 
-    // 从手机存储导入模型（SAF 文件夹选择：扫描目录内所有 .gguf 复制到 App 模型目录并注册）
+    // 从手机存储导入模型（SAF 文件夹选择）
+    // MNN 模型 = 完整文件夹（config.json + llm.mnn + tokenizer.txt 等整套），整目录复制到 models/mnn/
+    // 图片模型 = .safetensors/.bin 单个文件，复制到 models 根目录
     val importModelLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             var count = 0
-            var firstFile: File? = null
+            var importedMnn: File? = null
             withContext(Dispatchers.IO) {
                 try {
-                    fun scan(dir: Uri, depth: Int) {
-                        if (depth > 3) return
+                    fun copyTree(src: Uri, dest: File) {
+                        dest.mkdirs()
                         val children = context.contentResolver
-                            .query(dir, null, null, null, null)
+                            .query(src, null, null, null, null)
                             ?.use { c ->
                                 buildList {
                                     while (c.moveToNext()) {
@@ -326,35 +337,96 @@ fun SettingLocalModelsPage() {
                         for ((docId, mime, name) in children) {
                             val childUri = DocumentsContract.buildDocumentUriUsingTree(uri, docId)
                             if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                                scan(childUri, depth + 1)
-                            } else if (
-                                name.endsWith(".gguf", ignoreCase = true) ||
-                                name.endsWith(".mnn", ignoreCase = true) ||
-                                name.endsWith(".safetensors", ignoreCase = true) ||
-                                name.endsWith(".bin", ignoreCase = true)
-                            ) {
-                                val isGguf = name.endsWith(".gguf", ignoreCase = true)
-                                val target = File(modelsDir, name)
-                                context.contentResolver.openInputStream(childUri)?.use { input ->
-                                    target.outputStream().use { out -> input.copyTo(out) }
-                                }
-                                if (target.exists() && target.length() > 0) {
-                                    if (isGguf) {
-                                        count++
-                                        if (firstFile == null) firstFile = target
+                                copyTree(childUri, File(dest, name))
+                            } else {
+                                try {
+                                    val target = File(dest, name)
+                                    context.contentResolver.openInputStream(childUri)?.use { input ->
+                                        target.outputStream().use { out -> input.copyTo(out) }
                                     }
+                                } catch (e: Exception) {
+                                    me.rerere.rikkahub.utils.AppLogger.e("LocalModels", "复制文件失败: $e")
                                 }
                             }
                         }
                     }
-                    scan(uri, 0)
+                    fun hasConfig(dir: Uri): Boolean {
+                        val children = context.contentResolver
+                            .query(dir, null, null, null, null)
+                            ?.use { c ->
+                                buildList {
+                                    while (c.moveToNext()) {
+                                        val nameIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                        val name = if (nameIdx >= 0) c.getString(nameIdx) else null
+                                        if (name != null) add(name)
+                                    }
+                                }
+                            }
+                            .orEmpty()
+                        return children.any { it.equals("config.json", ignoreCase = true) }
+                    }
+                    fun scan(dir: Uri, name: String, depth: Int) {
+                        if (depth > 3) return
+                        // 该目录是 MNN 模型整套（含 config.json）→ 整目录导入
+                        if (depth > 0 && hasConfig(dir)) {
+                            val dest = File(File(modelsDir, "mnn"), name)
+                            if (!dest.exists()) {
+                                copyTree(dir, dest)
+                                if (File(dest, "config.json").exists() && File(dest, "llm.mnn").exists()) {
+                                    count++
+                                    if (importedMnn == null) importedMnn = dest
+                                } else if (File(dest, "config.json").exists()) {
+                                    count++
+                                    if (importedMnn == null) importedMnn = dest
+                                }
+                            }
+                            return
+                        }
+                        val children = context.contentResolver
+                            .query(dir, null, null, null, null)
+                            ?.use { c ->
+                                buildList {
+                                    while (c.moveToNext()) {
+                                        val idIdx = c.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                                        val mimeIdx = c.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                                        val nameIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                        val id = if (idIdx >= 0) c.getString(idIdx) else null
+                                        val mime = if (mimeIdx >= 0) c.getString(mimeIdx) else null
+                                        val name = if (nameIdx >= 0) c.getString(nameIdx) else null
+                                        if (id != null && name != null) {
+                                            add(Triple(id, mime ?: "", name))
+                                        }
+                                    }
+                                }
+                            }
+                            .orEmpty()
+                        for ((docId, mime, childName) in children) {
+                            val childUri = DocumentsContract.buildDocumentUriUsingTree(dir, docId)
+                            if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                                scan(childUri, childName, depth + 1)
+                            } else if (
+                                childName.endsWith(".safetensors", ignoreCase = true) ||
+                                childName.endsWith(".bin", ignoreCase = true)
+                            ) {
+                                // 图片生成模型单文件
+                                val target = File(modelsDir, childName)
+                                if (!target.exists() || target.length() == 0L) {
+                                    context.contentResolver.openInputStream(childUri)?.use { input ->
+                                        target.outputStream().use { out -> input.copyTo(out) }
+                                    }
+                                }
+                            }
+                            // .gguf / 单独 .mnn：不再支持导入（本版只支持 MNN 整套模型）
+                        }
+                    }
+                    scan(uri, "", 0)
                 } catch (e: Exception) {
                     me.rerere.rikkahub.utils.AppLogger.e("LocalModels", "导入失败: ${e.message}")
                 }
             }
-            if (firstFile != null) {
-                registerAndSelect(firstFile!!, firstFile!!.name, "local-${firstFile!!.name}")
-                me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "导入完成: $count 个模型，已选中 ${firstFile!!.name}")
+            if (importedMnn != null) {
+                registerAndSelect(importedMnn!!, importedMnn!!.name, "mnn-import-${importedMnn!!.name}")
+                me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "导入完成: $count 个模型，已选中 ${importedMnn!!.name}")
                 refreshTick++
                 Toast.makeText(
                     context,
@@ -407,7 +479,7 @@ fun SettingLocalModelsPage() {
         var lastBytes = 0L
         var lastNanos = System.nanoTime()
         var autoRetry = 0
-        scope.launch {
+        val job = scope.launch {
             try {
                 while (true) {
                     try {
@@ -454,8 +526,10 @@ fun SettingLocalModelsPage() {
                 Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 runningMap[key] = false
+                downloadJobs.remove(key)
             }
         }
+        downloadJobs[key] = job
     }
 
     /** 下载魔塔官方 MNN 模型（整套文件到 models/mnn/{name}/，完成后自动注册） */
@@ -466,12 +540,13 @@ fun SettingLocalModelsPage() {
         runningMap[key] = true
         var lastBytes = 0L
         var lastNanos = System.nanoTime()
-        scope.launch {
+        val job = scope.launch {
             try {
                 val files = fetchAllFiles(repo, client)
                 val needed = files.filter { File(it.path).name in MNN_NEEDED_FILES }
                 if (needed.isEmpty()) throw IllegalStateException("未找到 MNN 模型文件")
                 var total = needed.sumOf { it.size }
+                sizeMap[key] = formatSize(total)
                 var done = 0L
                 for (row in needed) {
                     val target = File(dir, File(row.path).name)
@@ -509,8 +584,10 @@ fun SettingLocalModelsPage() {
                 Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 runningMap[key] = false
+                downloadJobs.remove(key)
             }
         }
+        downloadJobs[key] = job
     }
 
     Scaffold(
@@ -529,7 +606,7 @@ fun SettingLocalModelsPage() {
         val _tick = refreshTick
         val localModels = remember(_tick) {
             val files = modelsDir.listFiles().orEmpty()
-                .filter { it.isFile && it.length() > 0 }
+                .filter { it.isFile && it.length() > 0 && !it.name.endsWith(".gguf", ignoreCase = true) }
             val mnnDirs = File(modelsDir, "mnn").listFiles().orEmpty()
                 .filter { it.isDirectory && File(it, "config.json").exists() }
             (files + mnnDirs).sortedByDescending { it.length() }
@@ -742,17 +819,37 @@ fun SettingLocalModelsPage() {
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
+                                val sizeText = sizeMap[repoKey]
+                                if (sizeText != null) {
+                                    Text(
+                                        text = stringResource(R.string.local_models_size, sizeText),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                         if (running) {
                             if (progress > 0f) {
                                 LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                             }
-                            Text(
-                                text = if (speed != null) "${(progress * 100).toInt()}% · $speed" else "${(progress * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = if (speed != null) "${(progress * 100).toInt()}% · $speed" else "${(progress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(
+                                    onClick = {
+                                        downloadJobs[repoKey]?.cancel()
+                                        runningMap[repoKey] = false
+                                        me.rerere.rikkahub.utils.AppLogger.i("LocalModels", "暂停下载: ${repo.name}")
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.local_models_pause))
+                                }
+                            }
                         } else {
                             Button(
                                 onClick = { startMnnDownload(repo) },
