@@ -7,6 +7,7 @@ package me.rerere.ai.local
 object MnnNative {
     interface TokenCallback {
         fun onToken(token: String)
+        fun onError(message: String) {}
     }
 
     /** MNN 库是否可用（x86_64 无官方预编译包时为 false，回退 GGUF） */

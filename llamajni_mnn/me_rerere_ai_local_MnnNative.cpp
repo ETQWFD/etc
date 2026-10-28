@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <fstream>
 #include <ostream>
 #include <sstream>
 #include <streambuf>
@@ -70,6 +71,40 @@ Java_me_rerere_ai_local_MnnNative_create(
         Llm * llm = Llm::createLLM(path);
         if (!llm) { delete mh; return -1; }
         mh->llm = llm;
+        // 官方流程：set_config 补充 MNN-LLM 必需字段
+        // 魔塔官方 MNN 仓库的 config.json 缺 llm_config/tokenizer_file 等字段，
+        // 不补会导致 prompt_template/分词器加载为空 → 回复空字符串。
+        {
+            std::string cfg = "";
+            std::ifstream f(path.c_str());
+            if (f.good()) {
+                std::stringstream ss;
+                ss << f.rdbuf();
+                cfg = ss.str();
+            }
+            bool has_llm_config = cfg.find("\"llm_config\"") != std::string::npos;
+            bool has_tokenizer = cfg.find("\"tokenizer_file\"") != std::string::npos;
+            if (!has_llm_config || !has_tokenizer) {
+                std::string merged = cfg;
+                if (cfg.size() > 1 && cfg.back() == '}') {
+                    merged.pop_back();
+                    if (!has_llm_config) {
+                        merged += ",\"llm_config\":\"llm_config.json\"";
+                    }
+                    if (!has_tokenizer) {
+                        merged += ",\"tokenizer_file\":\"tokenizer.txt\"";
+                    }
+                    merged += "}";
+                } else {
+                    merged = "{\"llm_model\":\"llm.mnn\",\"llm_weight\":\"llm.mnn.weight\","
+                             "\"llm_config\":\"llm_config.json\",\"tokenizer_file\":\"tokenizer.txt\","
+                             "\"backend_type\":\"cpu\",\"thread_num\":4,\"precision\":\"low\"}";
+                }
+                llm->set_config(merged);
+            } else {
+                llm->set_config(cfg);
+            }
+        }
         if (!llm->load()) {
             Llm::destroy(llm);
             mh->llm = nullptr;
@@ -100,6 +135,21 @@ Java_me_rerere_ai_local_MnnNative_chat(
         JniStreamBuffer sbuf(env, cb, out);
         std::ostream os(&sbuf);
         mh->llm->response(content, &os, nullptr, maxTokens > 0 ? maxTokens : 512);
+    } catch (const std::exception & e) {
+        // 异常透传：不再吞成空串，让上层显示真实错误
+        if (cb) {
+            jclass cls = env->GetObjectClass(cb);
+            if (cls) {
+                jmethodID onError = env->GetMethodID(cls, "onError", "(Ljava/lang/String;)V");
+                if (onError) {
+                    jstring js = env->NewStringUTF(e.what());
+                    env->CallVoidMethod(cb, onError, js);
+                    env->DeleteLocalRef(js);
+                }
+                env->DeleteLocalRef(cls);
+            }
+        }
+        return env->NewStringUTF("");
     } catch (...) {
         return env->NewStringUTF("");
     }

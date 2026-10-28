@@ -133,12 +133,22 @@ private val HOT_IMG_REPOS = listOf(
     MsRepo("AI-ModelScope", "stable-diffusion-xl-base-1.0", "Stable Diffusion XL 1.0"),
 )
 
-/** 魔塔官方 MNN 模型（MNN-LLM 手机端格式，llm.mnn 整套），全部已验证存在 */
+/** 魔塔官方 MNN 模型（MNN-LLM 手机端格式，llm.mnn 整套），全部实测存在 */
 private val HOT_MNN_REPOS = listOf(
+    // —— Qwen2.5 系列 ——
     MsRepo("MNN", "Qwen2.5-0.5B-Instruct-MNN", "Qwen2.5 0.5B MNN · 手机推荐"),
     MsRepo("MNN", "Qwen2.5-1.5B-Instruct-MNN", "Qwen2.5 1.5B MNN · 64 位设备"),
     MsRepo("MNN", "Qwen2.5-3B-Instruct-MNN", "Qwen2.5 3B MNN · 高配设备"),
     MsRepo("MNN", "Qwen2.5-7B-Instruct-MNN", "Qwen2.5 7B MNN · 旗舰设备"),
+    // —— Qwen2 系列 ——
+    MsRepo("MNN", "Qwen2-0.5B-Instruct-MNN", "Qwen2 0.5B MNN · 低配可用"),
+    MsRepo("MNN", "Qwen2-1.5B-Instruct-MNN", "Qwen2 1.5B MNN"),
+    // —— 代码模型 ——
+    MsRepo("MNN", "Qwen2.5-Coder-1.5B-Instruct-MNN", "Coder 1.5B MNN 代码"),
+    MsRepo("MNN", "Qwen2.5-Coder-7B-Instruct-MNN", "Coder 7B MNN 代码"),
+    // —— Llama 系列 ——
+    MsRepo("MNN", "Llama-3.2-1B-Instruct-MNN", "Llama 3.2 1B MNN"),
+    MsRepo("MNN", "Llama-3.2-3B-Instruct-MNN", "Llama 3.2 3B MNN"),
 )
 
 /** MNN 模型目录内需要下载的核心文件 */
@@ -749,158 +759,6 @@ fun SettingLocalModelsPage() {
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text(stringResource(R.string.local_models_download))
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                Text(
-                    text = stringResource(R.string.local_models_hot),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-
-            items(HOT_MS_REPOS, key = { it.key() }) { repo ->
-                val repoKey = repo.key()
-                val files = filesMap[repoKey].orEmpty()
-                val expanded = expandedRepo.value == repoKey
-                val loading = loadingFiles.value == repoKey
-
-                Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (expanded) {
-                                    expandedRepo.value = null
-                                } else {
-                                    expandedRepo.value = repoKey
-                                    if (files.isEmpty() && !loading) {
-                                        loadingFiles.value = repoKey
-                                        scope.launch {
-                                            try {
-                                                filesMap[repoKey] = fetchMsFiles(repo, client)
-                                            } catch (e: Exception) {
-                                                Toast.makeText(context, "${context.getString(R.string.local_models_failed)}: ${e.message}", Toast.LENGTH_SHORT).show()
-                                            } finally {
-                                                loadingFiles.value = null
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = HugeIcons.AiBrain01,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                                Text(
-                                    text = repo.key(),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = repo.display,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Icon(
-                                imageVector = HugeIcons.AiBrain01,
-                                contentDescription = null,
-                            )
-                        }
-
-                        if (expanded) {
-                            if (loading) {
-                                Row(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(stringResource(R.string.local_models_loading_files), style = MaterialTheme.typography.bodySmall)
-                                }
-                            } else if (files.isEmpty()) {
-                                Text(
-                                    text = stringResource(R.string.local_models_no_gguf),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                                )
-                            } else {
-                                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
-                                    files.forEach { row ->
-                                        val key = "$repoKey|${row.path}"
-                                        val progress = progressMap[key] ?: 0f
-                                        val speed = speedMap[key]
-                                        val running = runningMap[key] == true
-                                        val file = fileOf(repoKey, row.path)
-                                        val downloaded = file.exists() && file.length() > 0
-                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    text = row.path,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    modifier = Modifier.weight(1f),
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                                Text(
-                                                    text = formatSize(row.size),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                when {
-                                                    downloaded -> Text(
-                                                        text = stringResource(R.string.local_models_done),
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                    )
-                                                    running -> Text(
-                                                        text = stringResource(R.string.local_models_downloading, (progress * 100).toInt()),
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                    )
-                                                    else -> OutlinedButton(
-                                                        onClick = {
-                                                            startDownload(
-                                                                repoKey = repoKey,
-                                                                path = row.path,
-                                                                url = repo.downloadUrl(row.path),
-                                                                displayName = "${repo.name} · ${row.path}",
-                                                            )
-                                                        },
-                                                        modifier = Modifier.height(32.dp),
-                                                    ) {
-                                                        Text(stringResource(R.string.local_models_download), style = MaterialTheme.typography.labelSmall)
-                                                    }
-                                                }
-                                            }
-                                            if (running) {
-                                                LinearProgressIndicator(
-                                                    progress = { progress },
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                )
-                                                Text(
-                                                    text = if (speed != null) {
-                                                        stringResource(R.string.local_models_downloading_speed, (progress * 100).toInt(), speed)
-                                                    } else {
-                                                        stringResource(R.string.local_models_downloading, (progress * 100).toInt())
-                                                    },
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
