@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import me.rerere.ai.core.MessageRole
 import me.rerere.ai.core.TokenUsage
-import me.rerere.ai.local.LlamaNative
 import me.rerere.ai.local.MnnNative
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.Provider
@@ -24,9 +23,8 @@ import kotlin.uuid.Uuid
 private const val TAG = "LocalLlamaProvider"
 
 /**
- * 本地 GGUF 模型 Provider：完全离线，通过 llama.cpp JNI 在设备上推理。
- * 支持流式输出；工具调用由 qwen 系列模型的 chat template 原生支持，
- * 通过 system 提示注入工具说明。
+ * 本地模型 Provider：完全离线，通过 MNN-LLM（魔塔官方 MNN 模型）在设备上推理。
+ * 只支持 MNN 官方模型（llm.mnn 整套），不支持 GGUF。
  */
 class LocalLlamaProvider(private val context: Context) : Provider<ProviderSetting.Local> {
     private val handleHolder = AtomicLong(0L)
@@ -97,69 +95,25 @@ class LocalLlamaProvider(private val context: Context) : Provider<ProviderSettin
         if (path.isBlank()) throw IllegalStateException("本地模型路径为空，请先在本地模型页下载模型")
 
         val pathFile = java.io.File(path)
-        // MNN 模型：modelPath 为包含 config.json 的模型目录，走 MNN-LLM（魔塔官方 MNN 模型）
-        if (pathFile.isDirectory && java.io.File(pathFile, "config.json").exists()) {
-            if (!MnnNative.available) {
-                throw IllegalStateException("当前设备架构不支持 MNN 本地模型，请使用 GGUF 模型")
-            }
-            val userContent = messages
-                .filter { it.role != MessageRole.TOOL }
-                .joinToString("\n") { msg ->
-                    val who = if (msg.role == MessageRole.USER) "User" else "Assistant"
-                    "$who: ${msg.toText()}"
-                }
-            return LocalMnnRuntime.chat(
-                modelDir = path,
-                userContent = userContent,
-                maxTokens = params.maxTokens ?: 512,
-                threads = setting.threads,
-                streamTo = streamTo,
-            )
+        // 仅支持 MNN 模型：modelPath 为包含 config.json 的模型目录（魔塔官方 MNN 模型）
+        if (!pathFile.isDirectory || !java.io.File(pathFile, "config.json").exists()) {
+            throw IllegalStateException("仅支持 MNN 官方模型（模型目录需包含 config.json），不支持 GGUF 等其他格式")
         }
-
-        // 其余为 GGUF 文件，走 llama.cpp
-        val roles = mutableListOf<String>()
-        val contents = mutableListOf<String>()
-        if (params.tools.isNotEmpty()) {
-            roles.add("system")
-            contents.add(buildToolSystemPrompt(params.tools.joinToString { it.name }))
+        if (!MnnNative.available) {
+            throw IllegalStateException("当前设备架构不支持 MNN 本地模型，请使用 ARM 设备或接入 API")
         }
-        messages.filter { it.role != MessageRole.TOOL }.forEach { msg ->
-            roles.add(msg.role.name.lowercase())
-            contents.add(msg.toText())
-        }
-
-        val cb = object : LlamaNative.TokenCallback {
-            override fun onToken(token: String) {
-                streamTo?.invoke(token)
+        val userContent = messages
+            .filter { it.role != MessageRole.TOOL }
+            .joinToString("\n") { msg ->
+                val who = if (msg.role == MessageRole.USER) "User" else "Assistant"
+                "$who: ${msg.toText()}"
             }
-
-            override fun onError(message: String) {
-                throw IllegalStateException(message)
-            }
-        }
-
-        return try {
-            LocalLlamaRuntime.run(path, setting.nCtx, setting.threads) { handle ->
-                LlamaNative.stream(
-                    handle,
-                    roles.toTypedArray(),
-                    contents.toTypedArray(),
-                    params.maxTokens ?: 512,
-                    params.temperature ?: 0.8f,
-                    params.topP ?: 0.9f,
-                    cb,
-                )
-            }
-        } catch (e: IllegalStateException) {
-            if (e.message?.contains("模型句柄无效") == true) {
-                LocalLlamaRuntime.release()
-            }
-            throw e
-        }
+        return LocalMnnRuntime.chat(
+            modelDir = path,
+            userContent = userContent,
+            maxTokens = params.maxTokens ?: 512,
+            threads = setting.threads,
+            streamTo = streamTo,
+        )
     }
-
-    private fun buildToolSystemPrompt(tools: String): String =
-        "你可以调用以下工具：$tools。仅当用户明确要求（如“搜索”“调用工具”“用MCP”）时才调用工具；" +
-            "需要调用时严格输出 JSON：{\"tool\":\"工具名\",\"args\":{...}}，否则直接回复文本，绝不主动调用。"
 }

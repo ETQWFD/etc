@@ -1624,7 +1624,7 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_use">Use</string>
   <string name="local_models_selected">Local model selected, ready for offline chat</string>
   <string name="local_provider_model_path">Model file path</string>
-  <string name="local_provider_model_path_hint">GGUF file path (auto-filled after download)</string>
+  <string name="local_provider_model_path_hint">MNN model directory path (auto-filled after download)</string>
   <string name="local_provider_nctx">Context length</string>
   <string name="local_provider_threads">Threads</string>
   <string name="local_provider_hint">Local GGUF model runs fully offline on this device. After downloading, it appears in the chat model picker automatically.</string>

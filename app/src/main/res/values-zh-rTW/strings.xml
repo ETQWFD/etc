@@ -1624,7 +1624,7 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_use">使用</string>
   <string name="local_models_selected">本地模型已選中，可離線聊天</string>
   <string name="local_provider_model_path">模型檔案路徑</string>
-  <string name="local_provider_model_path_hint">GGUF 檔案路徑（下載後自動填入）</string>
+  <string name="local_provider_model_path_hint">MNN 模型目錄路徑（下載後自動填入）</string>
   <string name="local_provider_nctx">上下文長度</string>
   <string name="local_provider_threads">執行緒數</string>
   <string name="local_provider_hint">本地 GGUF 模型完全離線運行。下載後會自動出現在聊天模型選擇器中。</string>
@@ -1635,7 +1635,7 @@ GitHub: https://github.com/ETQWFD/etc</string>
   <string name="local_models_custom_query">自訂倉庫（組織/模型名，如 Qwen/Qwen2.5-3B-Instruct-GGUF）</string>
   <string name="local_models_fetch_files">取得檔案清單</string>
   <string name="local_models_query_format">格式應為 組織/模型名</string>
-  <string name="local_models_no_gguf">該倉庫中沒有可下載的 GGUF 檔案</string>
+  <string name="local_models_no_gguf">該倉庫中沒有可下載的 MNN 模型檔案</string>
   <string name="local_models_choose_quant">在下方選擇量化版本</string>
   <string name="local_models_done">已完成</string>
   <string name="local_models_hot">熱門 GGUF 模型</string>

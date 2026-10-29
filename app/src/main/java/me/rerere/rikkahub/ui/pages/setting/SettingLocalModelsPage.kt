@@ -97,37 +97,6 @@ private data class MsRepo(val namespace: String, val name: String, val display: 
 
 private data class MsFileRow(val path: String, val size: Long)
 
-/** 魔塔（ModelScope）热门 GGUF 模型，全部已验证存在 */
-private val HOT_MS_REPOS = listOf(
-    // —— 通义千问系列 ——
-    MsRepo("Qwen", "Qwen2.5-0.5B-Instruct-GGUF", "Qwen2.5 0.5B · 32 位手机推荐"),
-    MsRepo("Qwen", "Qwen2.5-1.5B-Instruct-GGUF", "Qwen2.5 1.5B · 64 位设备"),
-    MsRepo("Qwen", "Qwen2.5-3B-Instruct-GGUF", "Qwen2.5 3B · 高配设备"),
-    MsRepo("Qwen", "Qwen2.5-7B-Instruct-GGUF", "Qwen2.5 7B · 旗舰设备"),
-    MsRepo("Qwen", "Qwen2.5-14B-Instruct-GGUF", "Qwen2.5 14B · 大内存设备"),
-    MsRepo("Qwen", "Qwen2.5-32B-Instruct-GGUF", "Qwen2.5 32B · 顶级设备"),
-    MsRepo("Qwen", "Qwen2-0.5B-Instruct-GGUF", "Qwen2 0.5B · 低配可用"),
-    MsRepo("Qwen", "Qwen2-1.5B-Instruct-GGUF", "Qwen2 1.5B"),
-    MsRepo("Qwen", "Qwen2-7B-Instruct-GGUF", "Qwen2 7B"),
-    MsRepo("Qwen", "Qwen1.5-0.5B-Chat-GGUF", "Qwen1.5 0.5B 对话"),
-    MsRepo("Qwen", "Qwen1.5-1.8B-Chat-GGUF", "Qwen1.5 1.8B 对话"),
-    MsRepo("Qwen", "Qwen1.5-4B-Chat-GGUF", "Qwen1.5 4B 对话"),
-    MsRepo("Qwen", "Qwen1.5-7B-Chat-GGUF", "Qwen1.5 7B 对话"),
-    // —— 代码模型 ——
-    MsRepo("Qwen", "Qwen2.5-Coder-0.5B-Instruct-GGUF", "Coder 0.5B 代码 · 低配"),
-    MsRepo("Qwen", "Qwen2.5-Coder-1.5B-Instruct-GGUF", "Coder 1.5B 代码"),
-    MsRepo("Qwen", "Qwen2.5-Coder-3B-Instruct-GGUF", "Coder 3B 代码"),
-    MsRepo("Qwen", "Qwen2.5-Coder-7B-Instruct-GGUF", "Coder 7B 代码"),
-    MsRepo("Qwen", "Qwen2.5-Coder-14B-Instruct-GGUF", "Coder 14B 代码"),
-    // —— DeepSeek 系列 ——
-    MsRepo("unsloth", "DeepSeek-R1-Distill-Qwen-1.5B-GGUF", "DeepSeek R1 1.5B 推理"),
-    MsRepo("unsloth", "DeepSeek-R1-Distill-Qwen-7B-GGUF", "DeepSeek R1 7B 推理"),
-    MsRepo("unsloth", "DeepSeek-R1-Distill-Llama-8B-GGUF", "DeepSeek R1 8B 推理"),
-    // —— Llama 系列 ——
-    MsRepo("unsloth", "Llama-3.2-1B-Instruct-GGUF", "Llama 3.2 1B"),
-    MsRepo("unsloth", "Llama-3.2-3B-Instruct-GGUF", "Llama 3.2 3B"),
-)
-
 /** 魔塔热门图片生成模型（checkpoint），已验证存在，可下载管理 */
 private val HOT_IMG_REPOS = listOf(
     MsRepo("CompVis", "stable-diffusion-v1-4", "Stable Diffusion 1.4 官方"),
@@ -242,11 +211,6 @@ fun SettingLocalModelsPage() {
     val filesMap = remember { mutableStateMapOf<String, List<MsFileRow>>() }
     val expandedRepo = remember { mutableStateOf<String?>(null) }
     val loadingFiles = remember { mutableStateOf<String?>(null) }
-    var customQuery by remember { mutableStateOf("Qwen/Qwen2.5-3B-Instruct-GGUF") }
-    var customFiles by remember { mutableStateOf<List<MsFileRow>?>(null) }
-    var customLoading by remember { mutableStateOf(false) }
-    var customRepoName by remember { mutableStateOf("") }
-    var customError by remember { mutableStateOf<String?>(null) }
     var refreshTick by remember { mutableStateOf(0) }
 
     fun fileOf(repoKey: String, path: String): File = File(modelsDir, File(path).name)
@@ -454,17 +418,6 @@ fun SettingLocalModelsPage() {
     }
 
     /** 校验 GGUF 魔数：前 4 字节必须为 "GGUF"，否则视为损坏 */
-    fun isGgufValid(f: File): Boolean = try {
-        java.io.RandomAccessFile(f, "r").use { raf ->
-            val magic = ByteArray(4)
-            raf.readFully(magic)
-            magic[0] == 'G'.code.toByte() && magic[1] == 'G'.code.toByte() &&
-                magic[2] == 'U'.code.toByte() && magic[3] == 'F'.code.toByte()
-        }
-    } catch (e: Exception) {
-        false
-    }
-
     fun startDownload(repoKey: String, path: String, url: String, displayName: String) {
         val key = "$repoKey|$path"
         if (runningMap[key] == true) return
@@ -473,7 +426,7 @@ fun SettingLocalModelsPage() {
         val chunksDir = File(file.parentFile, "${file.name}.chunks")
         val complete = file.exists() && file.length() > 0 &&
             (!chunksDir.exists() || chunksDir.listFiles()?.isEmpty() == true)
-        if (complete && isGgufValid(file)) return
+        if (complete) return
         me.rerere.rikkahub.utils.AppLogger.i("Download", "开始下载: $displayName ($url)")
         runningMap[key] = true
         var lastBytes = 0L
@@ -504,13 +457,13 @@ fun SettingLocalModelsPage() {
                                 }
                             },
                         )
-                        // 下载完成自动校验：损坏则删除并自动重下一次（最多 2 次）
-                        if (!isGgufValid(file)) {
+                        // 下载完成校验：目标存在且非空即为完整（ChunkedDownloader 已保证分片合并完整）
+                        if (!file.exists() || file.length() == 0L) {
                             file.delete()
                             chunksDir.deleteRecursively()
                             autoRetry++
-                            me.rerere.rikkahub.utils.AppLogger.w("Download", "模型损坏，自动重下第 $autoRetry 次: $displayName")
-                            if (autoRetry > 2) throw IllegalStateException("模型文件损坏，自动重下 2 次仍失败")
+                            me.rerere.rikkahub.utils.AppLogger.w("Download", "文件损坏，自动重下第 $autoRetry 次: $displayName")
+                            if (autoRetry > 2) throw IllegalStateException("文件损坏，自动重下 2 次仍失败")
                             continue
                         }
                         break
@@ -635,154 +588,6 @@ fun SettingLocalModelsPage() {
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(
-                            text = stringResource(R.string.local_models_ms_market),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = stringResource(R.string.local_models_ms_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        OutlinedTextField(
-                            value = customQuery,
-                            onValueChange = { customQuery = it },
-                            label = { Text(stringResource(R.string.local_models_custom_query)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Button(
-                            onClick = {
-                                val parts = customQuery.trim().trim('/').split('/')
-                                if (parts.size != 2) {
-                                    customError = context.getString(R.string.local_models_query_format)
-                                    return@Button
-                                }
-                                customError = null
-                                customLoading = true
-                                customFiles = null
-                                customRepoName = customQuery.trim().trim('/')
-                                scope.launch {
-                                    try {
-                                        val repo = MsRepo(parts[0], parts[1], customQuery.trim().trim('/'))
-                                        val files = fetchMsFiles(repo, client)
-                                        if (files.isEmpty()) {
-                                            customError = context.getString(R.string.local_models_no_gguf)
-                                        } else {
-                                            customFiles = files
-                                        }
-                                    } catch (e: Exception) {
-                                        customError = e.message
-                                    } finally {
-                                        customLoading = false
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            if (customLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text(stringResource(R.string.local_models_fetch_files))
-                        }
-                        if (customError != null) {
-                            Text(
-                                text = customError ?: "",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (customFiles != null) {
-                item {
-                    Card(colors = CardDefaults.cardColors(containerColor = CustomColors.cardColorsOnSurfaceContainer.containerColor)) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = customRepoName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    text = stringResource(R.string.local_models_choose_quant),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            customFiles.orEmpty().forEach { row ->
-                                val key = "$customRepoName|${row.path}"
-                                val progress = progressMap[key] ?: 0f
-                                val speed = speedMap[key]
-                                val running = runningMap[key] == true
-                                val file = fileOf(customRepoName, row.path)
-                                val downloaded = file.exists() && file.length() > 0
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = row.path,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.weight(1f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                        Text(
-                                            text = formatSize(row.size),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        when {
-                                            downloaded -> Text(
-                                                text = stringResource(R.string.local_models_done),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
-                                            running -> Text(
-                                                text = stringResource(R.string.local_models_downloading, (progress * 100).toInt()),
-                                                style = MaterialTheme.typography.bodySmall,
-                                            )
-                                            else -> OutlinedButton(
-                                                onClick = {
-                                                    startDownload(
-                                                        repoKey = customRepoName,
-                                                        path = row.path,
-                                                        url = "https://modelscope.cn/api/v1/models/$customRepoName/repo?FilePath=${row.path}",
-                                                        displayName = "${customRepoName.split('/').last()} · ${row.path}",
-                                                    )
-                                                },
-                                                modifier = Modifier.height(32.dp),
-                                            ) {
-                                                Text(stringResource(R.string.local_models_download), style = MaterialTheme.typography.labelSmall)
-                                            }
-                                        }
-                                    }
-                                    if (running) {
-                                        LinearProgressIndicator(
-                                            progress = { progress },
-                                            modifier = Modifier.fillMaxWidth(),
-                                        )
-                                        Text(
-                                            text = if (speed != null) {
-                                                stringResource(R.string.local_models_downloading_speed, (progress * 100).toInt(), speed)
-                                            } else {
-                                                stringResource(R.string.local_models_downloading, (progress * 100).toInt())
-                                            },
-                                            style = MaterialTheme.typography.bodySmall,
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
